@@ -58,7 +58,7 @@ func handleUpdate(res http.ResponseWriter, req *http.Request) {
 
 	components := strings.Split(strings.Trim(path, "/"), "/")[1:]
 	//fmt.Printf("Components: %v", components)
-	if len(components) < 2 || len(components) > 3 {
+	if len(components) < 1 || len(components) > 3 {
 		http.Error(res, "Wrong number of data components", http.StatusBadRequest)
 		return
 	}
@@ -70,17 +70,16 @@ func handleUpdate(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if len(components) == 2 {
-		if _, err := strconv.ParseFloat(components[1], 64); err == nil {
-			http.Error(res, "No metrics name", http.StatusNotFound)
-		} else {
-			http.Error(res, "Wrong number of data components", http.StatusBadRequest)
-		}
-
+	if len(components) < 2 {
+		http.Error(res, "No metrics name", http.StatusNotFound)
 		return
 	}
 
 	metricsName = components[1]
+
+	if len(components) < 3 {
+		http.Error(res, "No metrics value", http.StatusBadRequest)
+	}
 
 	var convErr error
 	if metricsType == MetricsTypeGauge {
