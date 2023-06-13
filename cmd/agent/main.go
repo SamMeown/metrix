@@ -90,7 +90,7 @@ func (mg metricsGetter) getMemstatMetrics() map[string]gauge {
 
 type metricsClient struct {
 	http.Client
-	baseUrl string
+	baseURL string
 }
 
 func (client *metricsClient) reportAllMetrics(metrics metricsCollection) {
@@ -122,7 +122,7 @@ func (client *metricsClient) reportMetrics(name string, value any) error {
 		panic("Wrong metrics value type")
 	}
 
-	url := fmt.Sprintf("%s/%s/%s/%s", client.baseUrl, metricsType, name, valueString)
+	url := fmt.Sprintf("%s/%s/%s/%s", client.baseURL, metricsType, name, valueString)
 
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
@@ -150,7 +150,7 @@ const reportInterval = 2
 
 func main() {
 	getter := metricsGetter{memStatsMetricsNames: memStatsMetricsNames[:]}
-	client := &metricsClient{baseUrl: "http://localhost:8080/update"}
+	client := &metricsClient{baseURL: "http://localhost:8080/update"}
 	var metrics metricsCollection
 	var secondsElapsed int64
 
