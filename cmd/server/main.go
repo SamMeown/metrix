@@ -100,6 +100,53 @@ func handleUpdate(storage MetricsStorage) func(http.ResponseWriter, *http.Reques
 	}
 }
 
+func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+		path := req.URL.Path
+		fmt.Printf("Path: %s\n", path)
+
+		var metricsType = chi.URLParam(req, "metricsType")
+		var metricsName = chi.URLParam(req, "metricsName")
+
+		if metricsType != MetricsTypeGauge &&
+			metricsType != MetricsTypeCounter {
+			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
+			return
+		}
+
+		value, _ := storage.Value(metricsName)
+		if value == nil {
+			http.Error(res, "Metrics not found", http.StatusNotFound)
+			return
+		}
+
+		var valueString string
+		switch typedValue := value.(type) {
+		case float64:
+			if metricsType != MetricsTypeGauge {
+				http.Error(res, "Metrics has another type", http.StatusNotFound)
+				return
+			}
+			valueString = strconv.FormatFloat(typedValue, 'f', 2, 64)
+		case int64:
+			if metricsType != MetricsTypeCounter {
+				http.Error(res, "Metrics has another type", http.StatusNotFound)
+				return
+			}
+			valueString = strconv.FormatInt(typedValue, 10)
+		}
+
+		_, err := fmt.Fprintln(res, valueString)
+		if err != nil {
+			panic(err)
+		}
+
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
 func metricsRouter(storage MetricsStorage) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes)
@@ -117,6 +164,8 @@ func metricsRouter(storage MetricsStorage) chi.Router {
 			})
 		})
 	})
+
+	router.Get("/value/{metricsType}/{metricsName}", handleValue(storage))
 
 	return router
 }
