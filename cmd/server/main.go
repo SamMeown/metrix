@@ -246,7 +246,9 @@ func metricsRouter(storage MetricsStorage) chi.Router {
 }
 
 func main() {
-	err := http.ListenAndServe(`:8080`, metricsRouter(storage))
+	parseFlags()
+
+	err := http.ListenAndServe(flagAddress, metricsRouter(storage))
 	if err != nil {
 		panic(err)
 	}
