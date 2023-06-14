@@ -145,22 +145,21 @@ func (client *metricsClient) reportMetrics(name string, value any) error {
 	return nil
 }
 
-const pollInterval = 1
-const reportInterval = 2
-
 func main() {
+	parseFlags()
+
 	getter := metricsGetter{memStatsMetricsNames: memStatsMetricsNames[:]}
-	client := &metricsClient{baseURL: "http://localhost:8080/update"}
+	client := &metricsClient{baseURL: fmt.Sprintf("http://%s/update", serverBaseAddress)}
 	var metrics metricsCollection
 	var secondsElapsed int64
 
 	for {
-		if secondsElapsed%pollInterval == 0 {
+		if secondsElapsed%int64(pollInterval) == 0 {
 			fmt.Println("Refreshing metrics...")
 			metrics = getter.getMetrics()
 		}
 
-		if secondsElapsed%reportInterval == 0 {
+		if secondsElapsed%int64(reportInterval) == 0 {
 			fmt.Println("Reporting metrics...")
 			client.reportAllMetrics(metrics)
 		}
