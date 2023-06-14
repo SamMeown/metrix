@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/stretchr/testify/assert"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -102,6 +103,8 @@ func TestHandleUpdate(t *testing.T) {
 			handler(recorder, req)
 
 			result := recorder.Result()
+			io.Copy(io.Discard, result.Body)
+			result.Body.Close()
 
 			assert.Equal(t, result.StatusCode, tt.want.statusCode)
 			assert.Equal(t, result.Header.Get("Content-Type"), tt.want.contentType)
