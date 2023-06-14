@@ -8,6 +8,49 @@ import (
 	"strconv"
 )
 
+var tableTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 100%%;
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(even) {
+  background-color: #dddddd;
+}
+</style>
+</head>
+<body>
+
+<h2>Metrics</h2>
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Value</th>
+  </tr>
+  %s
+</table>
+
+</body>
+</html>
+`
+
+var tableRowTemlate = `<tr>
+    <td>%s</td>
+    <td>%v</td>
+  </tr>`
+
 const (
 	MetricsTypeGauge   = "gauge"
 	MetricsTypeCounter = "counter"
@@ -17,6 +60,7 @@ type MetricsStorage interface {
 	SetGauge(name string, value float64) error
 	SetCounter(name string, value int64) error
 	Value(name string) (any, error)
+	Values() (map[string]any, error)
 }
 
 type MemStorage struct {
@@ -25,6 +69,15 @@ type MemStorage struct {
 
 func (m MemStorage) Value(name string) (any, error) {
 	return m.values[name], nil
+}
+
+func (m MemStorage) Values() (map[string]any, error) {
+	rv := make(map[string]any, len(m.values))
+	for k, v := range m.values {
+		rv[k] = v
+	}
+
+	return rv, nil
 }
 
 func (m MemStorage) SetGauge(name string, value float64) error {
@@ -147,6 +200,26 @@ func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http
 	}
 }
 
+func handleRoot(storage MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		var rows string
+		metrics, _ := storage.Values()
+		for name, value := range metrics {
+			rows += fmt.Sprintf(tableRowTemlate, name, value)
+		}
+
+		table := fmt.Sprintf(tableTemplate, rows)
+
+		_, err := fmt.Fprintln(res, table)
+		if err != nil {
+			panic(err)
+		}
+
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
 func metricsRouter(storage MetricsStorage) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes)
@@ -166,6 +239,8 @@ func metricsRouter(storage MetricsStorage) chi.Router {
 	})
 
 	router.Get("/value/{metricsType}/{metricsName}", handleValue(storage))
+
+	router.Get("/", handleRoot(storage))
 
 	return router
 }
