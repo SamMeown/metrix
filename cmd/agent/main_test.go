@@ -1,0 +1,60 @@
+package main
+
+import (
+	"github.com/stretchr/testify/assert"
+	"net/http"
+	"testing"
+)
+
+type RoundTripFunc func(req *http.Request) *http.Response
+
+func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req), nil
+}
+
+func NewTestClient(transport RoundTripFunc) http.Client {
+	return http.Client{
+		Transport: transport,
+	}
+}
+
+func TestMetricsClientRequest(t *testing.T) {
+	tests := []struct {
+		name         string
+		metricsName  string
+		metricsValue any
+		wantedPath   string
+	}{
+		{
+			name:         "Test send gauge metrics",
+			metricsName:  "a",
+			metricsValue: float64(1234.1234),
+			wantedPath:   "/update/gauge/a/1234.12",
+		},
+		{
+			name:         "Test send counter metrics",
+			metricsName:  "b",
+			metricsValue: int64(1234),
+			wantedPath:   "/update/counter/b/1234",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testClient := NewTestClient(func(req *http.Request) *http.Response {
+				assert.Equal(t, req.Method, http.MethodPost)
+				assert.Equal(t, req.URL.Path, tt.wantedPath)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+				}
+			})
+
+			client := metricsClient{
+				Client:  testClient,
+				baseURL: "http://localhost:8080/update",
+			}
+
+			client.reportMetrics(tt.metricsName, tt.metricsValue)
+		})
+	}
+}
