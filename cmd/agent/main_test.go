@@ -29,7 +29,7 @@ func TestMetricsClientRequest(t *testing.T) {
 			name:         "Test send gauge metrics",
 			metricsName:  "a",
 			metricsValue: float64(1234.1234),
-			wantedPath:   "/update/gauge/a/1234.12",
+			wantedPath:   "/update/gauge/a/1234.1234",
 		},
 		{
 			name:         "Test send counter metrics",

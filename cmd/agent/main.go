@@ -114,7 +114,7 @@ func (client *metricsClient) reportMetrics(name string, value any) error {
 	switch typedValue := value.(type) {
 	case gauge:
 		metricsType = "gauge"
-		valueString = strconv.FormatFloat(typedValue, 'f', 2, 64)
+		valueString = strconv.FormatFloat(typedValue, 'f', -1, 64)
 	case counter:
 		metricsType = "counter"
 		valueString = strconv.FormatInt(typedValue, 10)

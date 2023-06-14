@@ -129,7 +129,7 @@ func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http
 				http.Error(res, "Metrics has another type", http.StatusNotFound)
 				return
 			}
-			valueString = strconv.FormatFloat(typedValue, 'f', 2, 64)
+			valueString = strconv.FormatFloat(typedValue, 'f', -1, 64)
 		case int64:
 			if metricsType != MetricsTypeCounter {
 				http.Error(res, "Metrics has another type", http.StatusNotFound)
