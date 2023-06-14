@@ -98,16 +98,16 @@ func TestHandleUpdate(t *testing.T) {
 			storage := MemStorage{make(map[string]any)}
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := http.HandlerFunc(handleUpdate(storage))
+			handler := metricsRouter(storage)
 
-			handler(recorder, req)
+			handler.ServeHTTP(recorder, req)
 
 			result := recorder.Result()
 			io.Copy(io.Discard, result.Body)
 			result.Body.Close()
 
-			assert.Equal(t, result.StatusCode, tt.want.statusCode)
-			assert.Equal(t, result.Header.Get("Content-Type"), tt.want.contentType)
+			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
 		})
 	}
 }
