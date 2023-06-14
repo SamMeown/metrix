@@ -88,6 +88,10 @@ func (mg metricsGetter) getMemstatMetrics() map[string]gauge {
 	return metrics
 }
 
+func (mg *metricsGetter) resetCount() {
+	mg.getCount = 0
+}
+
 type metricsClient struct {
 	http.Client
 	baseURL string
@@ -162,6 +166,7 @@ func main() {
 		if secondsElapsed%int64(reportInterval) == 0 {
 			fmt.Println("Reporting metrics...")
 			client.reportAllMetrics(metrics)
+			getter.resetCount()
 		}
 
 		secondsElapsed++
