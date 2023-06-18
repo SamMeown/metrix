@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
@@ -95,10 +96,10 @@ func TestHandleUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := MemStorage{make(map[string]any)}
+			mStorage := storage.New()
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(storage)
+			handler := metricsRouter(mStorage)
 
 			handler.ServeHTTP(recorder, req)
 

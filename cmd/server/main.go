@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
@@ -51,52 +52,7 @@ var tableRowTemlate = `<tr>
     <td>%v</td>
   </tr>`
 
-const (
-	MetricsTypeGauge   = "gauge"
-	MetricsTypeCounter = "counter"
-)
-
-type MetricsStorage interface {
-	SetGauge(name string, value float64) error
-	SetCounter(name string, value int64) error
-	Value(name string) (any, error)
-	Values() (map[string]any, error)
-}
-
-type MemStorage struct {
-	values map[string]any
-}
-
-func (m MemStorage) Value(name string) (any, error) {
-	return m.values[name], nil
-}
-
-func (m MemStorage) Values() (map[string]any, error) {
-	rv := make(map[string]any, len(m.values))
-	for k, v := range m.values {
-		rv[k] = v
-	}
-
-	return rv, nil
-}
-
-func (m MemStorage) SetGauge(name string, value float64) error {
-	m.values[name] = value
-	return nil
-}
-
-func (m MemStorage) SetCounter(name string, value int64) error {
-	if _, ok := m.values[name]; !ok {
-		m.values[name] = int64(0)
-	}
-	m.values[name] = m.values[name].(int64) + value
-
-	return nil
-}
-
-var storage MetricsStorage = MemStorage{make(map[string]any)}
-
-func handleUpdate(storage MetricsStorage) func(http.ResponseWriter, *http.Request) {
+func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
@@ -114,8 +70,8 @@ func handleUpdate(storage MetricsStorage) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
-		if metricsType != MetricsTypeGauge &&
-			metricsType != MetricsTypeCounter {
+		if metricsType != storage.MetricsTypeGauge &&
+			metricsType != storage.MetricsTypeCounter {
 			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
 			return
 		}
@@ -132,7 +88,7 @@ func handleUpdate(storage MetricsStorage) func(http.ResponseWriter, *http.Reques
 
 		var metricsValue any
 		var convErr error
-		if metricsType == MetricsTypeGauge {
+		if metricsType == storage.MetricsTypeGauge {
 			metricsValue, convErr = strconv.ParseFloat(metricsValueStr, 64)
 		} else {
 			metricsValue, convErr = strconv.ParseInt(metricsValueStr, 10, 64)
@@ -143,17 +99,17 @@ func handleUpdate(storage MetricsStorage) func(http.ResponseWriter, *http.Reques
 		}
 
 		//fmt.Printf("type: %s, name: %s, value: %v", metricsType, metricsName, metricsValue)
-		if metricsType == MetricsTypeGauge {
-			storage.SetGauge(metricsName, metricsValue.(float64))
+		if metricsType == storage.MetricsTypeGauge {
+			mStorage.SetGauge(metricsName, metricsValue.(float64))
 		} else {
-			storage.SetCounter(metricsName, metricsValue.(int64))
+			mStorage.SetCounter(metricsName, metricsValue.(int64))
 		}
 
 		res.WriteHeader(http.StatusOK)
 	}
 }
 
-func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
+func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
@@ -163,13 +119,13 @@ func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http
 		var metricsType = chi.URLParam(req, "metricsType")
 		var metricsName = chi.URLParam(req, "metricsName")
 
-		if metricsType != MetricsTypeGauge &&
-			metricsType != MetricsTypeCounter {
+		if metricsType != storage.MetricsTypeGauge &&
+			metricsType != storage.MetricsTypeCounter {
 			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
 			return
 		}
 
-		value, _ := storage.Value(metricsName)
+		value, _ := mStorage.Value(metricsName)
 		if value == nil {
 			http.Error(res, "Metrics not found", http.StatusNotFound)
 			return
@@ -178,13 +134,13 @@ func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http
 		var valueString string
 		switch typedValue := value.(type) {
 		case float64:
-			if metricsType != MetricsTypeGauge {
+			if metricsType != storage.MetricsTypeGauge {
 				http.Error(res, "Metrics has another type", http.StatusNotFound)
 				return
 			}
 			valueString = strconv.FormatFloat(typedValue, 'f', -1, 64)
 		case int64:
-			if metricsType != MetricsTypeCounter {
+			if metricsType != storage.MetricsTypeCounter {
 				http.Error(res, "Metrics has another type", http.StatusNotFound)
 				return
 			}
@@ -200,10 +156,10 @@ func handleValue(storage MetricsStorage) func(res http.ResponseWriter, req *http
 	}
 }
 
-func handleRoot(storage MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
+func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		var rows string
-		metrics, _ := storage.Values()
+		metrics, _ := mStorage.Values()
 		for name, value := range metrics {
 			rows += fmt.Sprintf(tableRowTemlate, name, value)
 		}
@@ -220,35 +176,35 @@ func handleRoot(storage MetricsStorage) func(res http.ResponseWriter, req *http.
 	}
 }
 
-func metricsRouter(storage MetricsStorage) chi.Router {
+func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes)
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
 	router.Route("/update", func(router chi.Router) {
-		router.Post("/", handleUpdate(storage))
+		router.Post("/", handleUpdate(mStorage))
 		router.Route("/{metricsType}", func(router chi.Router) {
-			router.Post("/", handleUpdate(storage))
+			router.Post("/", handleUpdate(mStorage))
 			router.Route("/{metricsName}", func(router chi.Router) {
-				router.Post("/", handleUpdate(storage))
+				router.Post("/", handleUpdate(mStorage))
 				router.Route("/{metricsValue}", func(router chi.Router) {
-					router.Post("/", handleUpdate(storage))
+					router.Post("/", handleUpdate(mStorage))
 				})
 			})
 		})
 	})
 
-	router.Get("/value/{metricsType}/{metricsName}", handleValue(storage))
+	router.Get("/value/{metricsType}/{metricsName}", handleValue(mStorage))
 
-	router.Get("/", handleRoot(storage))
+	router.Get("/", handleRoot(mStorage))
 
 	return router
 }
 
 func main() {
 	parseFlags()
-
-	err := http.ListenAndServe(flagAddress, metricsRouter(storage))
+	metricsStorage := storage.New()
+	err := http.ListenAndServe(flagAddress, metricsRouter(metricsStorage))
 	if err != nil {
 		panic(err)
 	}
