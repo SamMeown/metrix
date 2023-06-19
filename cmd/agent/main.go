@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/SamMeown/metrix/internal/agent/config"
 	"io"
 	"math/rand"
 	"net/http"
@@ -150,20 +151,20 @@ func (client *metricsClient) reportMetrics(name string, value any) error {
 }
 
 func main() {
-	parseFlags()
+	agentConfig := config.Parse()
 
 	getter := metricsGetter{memStatsMetricsNames: memStatsMetricsNames[:]}
-	client := &metricsClient{baseURL: fmt.Sprintf("http://%s/update", serverBaseAddress)}
+	client := &metricsClient{baseURL: fmt.Sprintf("http://%s/update", agentConfig.ServerBaseAddress)}
 	var metrics metricsCollection
 	var secondsElapsed int64
 
 	for {
-		if secondsElapsed%int64(pollInterval) == 0 {
+		if secondsElapsed%int64(agentConfig.PollInterval) == 0 {
 			fmt.Println("Refreshing metrics...")
 			metrics = getter.getMetrics()
 		}
 
-		if secondsElapsed%int64(reportInterval) == 0 {
+		if secondsElapsed%int64(agentConfig.ReportInterval) == 0 {
 			fmt.Println("Reporting metrics...")
 			client.reportAllMetrics(metrics)
 			getter.resetCount()
