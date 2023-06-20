@@ -5,28 +5,52 @@ const (
 	MetricsTypeCounter = "counter"
 )
 
+type MetricsStorageGetter interface {
+	GetGauge(name string) (*float64, error)
+	GetCounter(name string) (*int64, error)
+	GetAll() (map[string]any, error)
+}
+
 type MetricsStorage interface {
+	MetricsStorageGetter
 	SetGauge(name string, value float64) error
 	SetCounter(name string, value int64) error
-	Value(name string) (any, error)
-	Values() (map[string]any, error)
 }
 
 func New() MetricsStorage {
-	return memStorage{make(map[string]any)}
+	return memStorage{
+		gauges:   make(map[string]float64),
+		counters: make(map[string]int64),
+	}
 }
 
 type memStorage struct {
-	values map[string]any
+	gauges   map[string]float64
+	counters map[string]int64
 }
 
-func (m memStorage) Value(name string) (any, error) {
-	return m.values[name], nil
+func (m memStorage) GetGauge(name string) (*float64, error) {
+	if val, ok := m.gauges[name]; ok {
+		return &val, nil
+	}
+
+	return nil, nil
 }
 
-func (m memStorage) Values() (map[string]any, error) {
-	rv := make(map[string]any, len(m.values))
-	for k, v := range m.values {
+func (m memStorage) GetCounter(name string) (*int64, error) {
+	if val, ok := m.counters[name]; ok {
+		return &val, nil
+	}
+
+	return nil, nil
+}
+
+func (m memStorage) GetAll() (map[string]any, error) {
+	rv := make(map[string]any, len(m.gauges)+len(m.counters))
+	for k, v := range m.gauges {
+		rv[k] = v
+	}
+	for k, v := range m.counters {
 		rv[k] = v
 	}
 
@@ -34,15 +58,11 @@ func (m memStorage) Values() (map[string]any, error) {
 }
 
 func (m memStorage) SetGauge(name string, value float64) error {
-	m.values[name] = value
+	m.gauges[name] = value
 	return nil
 }
 
 func (m memStorage) SetCounter(name string, value int64) error {
-	if _, ok := m.values[name]; !ok {
-		m.values[name] = int64(0)
-	}
-	m.values[name] = m.values[name].(int64) + value
-
+	m.counters[name] += value
 	return nil
 }

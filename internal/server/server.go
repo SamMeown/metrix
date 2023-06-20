@@ -87,23 +87,21 @@ func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *ht
 			return
 		}
 
-		var metricsValue any
-		var convErr error
-		if metricsType == storage.MetricsTypeGauge {
-			metricsValue, convErr = strconv.ParseFloat(metricsValueStr, 64)
-		} else {
-			metricsValue, convErr = strconv.ParseInt(metricsValueStr, 10, 64)
-		}
-		if convErr != nil {
-			http.Error(res, "Can not parse metrics value", http.StatusBadRequest)
-			return
-		}
-
-		//fmt.Printf("type: %s, name: %s, value: %v", metricsType, metricsName, metricsValue)
-		if metricsType == storage.MetricsTypeGauge {
-			mStorage.SetGauge(metricsName, metricsValue.(float64))
-		} else {
-			mStorage.SetCounter(metricsName, metricsValue.(int64))
+		switch metricsType {
+		case storage.MetricsTypeGauge:
+			if metricsValue, convErr := strconv.ParseFloat(metricsValueStr, 64); convErr == nil {
+				mStorage.SetGauge(metricsName, metricsValue)
+			} else {
+				http.Error(res, "Can not parse metrics value", http.StatusBadRequest)
+				return
+			}
+		case storage.MetricsTypeCounter:
+			if metricsValue, convErr := strconv.ParseInt(metricsValueStr, 10, 64); convErr == nil {
+				mStorage.SetCounter(metricsName, metricsValue)
+			} else {
+				http.Error(res, "Can not parse metrics value", http.StatusBadRequest)
+				return
+			}
 		}
 
 		res.WriteHeader(http.StatusOK)
@@ -120,32 +118,25 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 		var metricsType = chi.URLParam(req, "metricsType")
 		var metricsName = chi.URLParam(req, "metricsName")
 
-		if metricsType != storage.MetricsTypeGauge &&
-			metricsType != storage.MetricsTypeCounter {
+		var valueString string
+		switch metricsType {
+		default:
 			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
 			return
-		}
-
-		value, _ := mStorage.Value(metricsName)
-		if value == nil {
-			http.Error(res, "Metrics not found", http.StatusNotFound)
-			return
-		}
-
-		var valueString string
-		switch typedValue := value.(type) {
-		case float64:
-			if metricsType != storage.MetricsTypeGauge {
-				http.Error(res, "Metrics has another type", http.StatusNotFound)
+		case storage.MetricsTypeGauge:
+			value, _ := mStorage.GetGauge(metricsName)
+			if value == nil {
+				http.Error(res, "Metrics not found", http.StatusNotFound)
 				return
 			}
-			valueString = strconv.FormatFloat(typedValue, 'f', -1, 64)
-		case int64:
-			if metricsType != storage.MetricsTypeCounter {
-				http.Error(res, "Metrics has another type", http.StatusNotFound)
+			valueString = strconv.FormatFloat(*value, 'f', -1, 64)
+		case storage.MetricsTypeCounter:
+			value, _ := mStorage.GetCounter(metricsName)
+			if value == nil {
+				http.Error(res, "Metrics not found", http.StatusNotFound)
 				return
 			}
-			valueString = strconv.FormatInt(typedValue, 10)
+			valueString = strconv.FormatInt(*value, 10)
 		}
 
 		_, err := fmt.Fprintln(res, valueString)
@@ -160,7 +151,7 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		var rows string
-		metrics, _ := mStorage.Values()
+		metrics, _ := mStorage.GetAll()
 		for name, value := range metrics {
 			rows += fmt.Sprintf(tableRowTemlate, name, value)
 		}
