@@ -5,10 +5,15 @@ const (
 	MetricsTypeCounter = "counter"
 )
 
+type MetricsStorageSnapshot struct {
+	Gauges   map[string]float64
+	Counters map[string]int64
+}
+
 type MetricsStorageGetter interface {
 	GetGauge(name string) (*float64, error)
 	GetCounter(name string) (*int64, error)
-	GetAll() (map[string]any, error)
+	GetAll() (MetricsStorageSnapshot, error)
 }
 
 type MetricsStorage interface {
@@ -45,13 +50,16 @@ func (m memStorage) GetCounter(name string) (*int64, error) {
 	return nil, nil
 }
 
-func (m memStorage) GetAll() (map[string]any, error) {
-	rv := make(map[string]any, len(m.gauges)+len(m.counters))
+func (m memStorage) GetAll() (MetricsStorageSnapshot, error) {
+	rv := MetricsStorageSnapshot{
+		Gauges:   make(map[string]float64, len(m.gauges)),
+		Counters: make(map[string]int64, len(m.counters)),
+	}
 	for k, v := range m.gauges {
-		rv[k] = v
+		rv.Gauges[k] = v
 	}
 	for k, v := range m.counters {
-		rv[k] = v
+		rv.Counters[k] = v
 	}
 
 	return rv, nil

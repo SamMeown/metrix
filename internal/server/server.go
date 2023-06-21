@@ -151,8 +151,11 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		var rows string
-		metrics, _ := mStorage.GetAll()
-		for name, value := range metrics {
+		snapshot, _ := mStorage.GetAll()
+		for name, value := range snapshot.Gauges {
+			rows += fmt.Sprintf(tableRowTemlate, name, value)
+		}
+		for name, value := range snapshot.Counters {
 			rows += fmt.Sprintf(tableRowTemlate, name, value)
 		}
 
