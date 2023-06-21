@@ -1,6 +1,7 @@
-package main
+package agent
 
 import (
+	"github.com/SamMeown/metrix/internal/agent/client"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -49,12 +50,9 @@ func TestMetricsClientRequest(t *testing.T) {
 				}
 			})
 
-			client := metricsClient{
-				Client:  testClient,
-				baseURL: "http://localhost:8080/update",
-			}
+			mClient := client.NewMetricsCustomClient("localhost:8080", testClient)
 
-			client.reportMetrics(tt.metricsName, tt.metricsValue)
+			mClient.ReportMetrics(tt.metricsName, tt.metricsValue)
 		})
 	}
 }
