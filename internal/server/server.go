@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/SamMeown/metrix/internal/logger"
+	"github.com/SamMeown/metrix/internal/models"
 	"github.com/SamMeown/metrix/internal/server/config"
 	middlewares "github.com/SamMeown/metrix/internal/server/middleware"
 	"github.com/SamMeown/metrix/internal/storage"
@@ -54,6 +57,56 @@ var tableRowTemlate = `<tr>
     <td>%s</td>
     <td>%v</td>
   </tr>`
+
+func handleUpdateJSON(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "application/json")
+
+		var metrics models.Metrics
+		var buf bytes.Buffer
+
+		_, err := buf.ReadFrom(req.Body)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = json.Unmarshal(buf.Bytes(), &metrics)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		logger.Log.Debugf("Body: %+v", metrics)
+
+		if metrics.ID == "" {
+			http.Error(res, "No metrics name", http.StatusNotFound)
+			return
+		}
+
+		switch metrics.MType {
+		case storage.MetricsTypeGauge:
+			if metrics.Value != nil {
+				mStorage.SetGauge(metrics.ID, *metrics.Value)
+			} else {
+				http.Error(res, "No metrics value", http.StatusBadRequest)
+				return
+			}
+		case storage.MetricsTypeCounter:
+			if metrics.Delta != nil {
+				mStorage.SetCounter(metrics.ID, *metrics.Delta)
+			} else {
+				http.Error(res, "No metrics value", http.StatusBadRequest)
+				return
+			}
+		default:
+			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+	}
+}
 
 func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
@@ -173,7 +226,7 @@ func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
 	router.Route("/update", func(router chi.Router) {
-		router.Post("/", handleUpdate(mStorage))
+		router.Post("/", handleUpdateJSON(mStorage))
 		router.Route("/{metricsType}", func(router chi.Router) {
 			router.Post("/", handleUpdate(mStorage))
 			router.Route("/{metricsName}", func(router chi.Router) {
