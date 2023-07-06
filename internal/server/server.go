@@ -59,14 +59,11 @@ func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *ht
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
-		path := req.URL.Path
-		fmt.Printf("Path: %s\n", path)
-
 		var metricsType = chi.URLParam(req, "metricsType")
 		var metricsName = chi.URLParam(req, "metricsName")
 		var metricsValueStr = chi.URLParam(req, "metricsValue")
 
-		//fmt.Printf("metricsType: %s, metricsName: %s, metricsValue: %s\n", metricsType, metricsName, metricsValueStr)
+		logger.Log.Debugf("metricsType: %s, metricsName: %s, metricsValue: %s\n", metricsType, metricsName, metricsValueStr)
 
 		if metricsType == "" {
 			http.Error(res, "Wrong number of data components", http.StatusBadRequest)
@@ -113,9 +110,6 @@ func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *ht
 func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
-		path := req.URL.Path
-		fmt.Printf("Path: %s\n", path)
 
 		var metricsType = chi.URLParam(req, "metricsType")
 		var metricsName = chi.URLParam(req, "metricsName")
