@@ -188,17 +188,19 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 			valueString = strconv.FormatInt(*value, 10)
 		}
 
+		res.WriteHeader(http.StatusOK)
+
 		_, err := fmt.Fprintln(res, valueString)
 		if err != nil {
 			panic(err)
 		}
-
-		res.WriteHeader(http.StatusOK)
 	}
 }
 
 func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 		var rows string
 		snapshot, _ := mStorage.GetAll()
 		for name, value := range snapshot.Gauges {
@@ -210,13 +212,12 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 
 		table := fmt.Sprintf(tableTemplate, rows)
 
+		res.WriteHeader(http.StatusOK)
+
 		_, err := fmt.Fprintln(res, table)
 		if err != nil {
 			panic(err)
 		}
-
-		res.Header().Set("Content-Type", "text/html; charset=utf-8")
-		res.WriteHeader(http.StatusOK)
 	}
 }
 
