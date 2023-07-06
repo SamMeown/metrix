@@ -2,7 +2,9 @@ package server
 
 import (
 	"fmt"
+	"github.com/SamMeown/metrix/internal/logger"
 	"github.com/SamMeown/metrix/internal/server/config"
+	middlewares "github.com/SamMeown/metrix/internal/server/middleware"
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -173,7 +175,7 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 
 func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 	router := chi.NewRouter()
-	router.Use(middleware.StripSlashes)
+	router.Use(middleware.StripSlashes, middlewares.Logging)
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
 	router.Route("/update", func(router chi.Router) {
@@ -197,7 +199,13 @@ func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 }
 
 func Start(conf config.Config, mStorage storage.MetricsStorage) {
-	err := http.ListenAndServe(conf.Address, metricsRouter(mStorage))
+	err := logger.Initialize("info")
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Log.Sync()
+
+	err = http.ListenAndServe(conf.Address, metricsRouter(mStorage))
 	if err != nil {
 		panic(err)
 	}
