@@ -104,7 +104,28 @@ func handleUpdateJSON(mStorage storage.MetricsStorage) func(http.ResponseWriter,
 			return
 		}
 
+		response := metrics
+		response.Delta = nil
+		switch response.MType {
+		case storage.MetricsTypeGauge:
+			value, _ := mStorage.GetGauge(response.ID)
+			response.Value = value
+		case storage.MetricsTypeCounter:
+			counter, _ := mStorage.GetCounter(response.ID)
+			value := float64(*counter)
+			response.Value = &value
+		}
+
+		resp, err := json.Marshal(response)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
+
 		res.WriteHeader(http.StatusOK)
+		_, err = res.Write(resp)
+		if err != nil {
+			logger.Log.Errorf("Failed to write response body")
+		}
 	}
 }
 
@@ -247,7 +268,7 @@ func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 }
 
 func Start(conf config.Config, mStorage storage.MetricsStorage) {
-	err := logger.Initialize("info")
+	err := logger.Initialize("debug")
 	if err != nil {
 		panic(err)
 	}
