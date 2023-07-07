@@ -181,6 +181,67 @@ func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *ht
 	}
 }
 
+func handleValueJSON(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "application/json")
+
+		var request models.Metrics
+		var buf bytes.Buffer
+
+		_, err := buf.ReadFrom(req.Body)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+		err = json.Unmarshal(buf.Bytes(), &request)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		logger.Log.Debugf("Body: %+v", request)
+
+		if request.ID == "" {
+			http.Error(res, "No metrics name", http.StatusBadRequest)
+			return
+		}
+
+		response := request
+
+		switch request.MType {
+		default:
+			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
+			return
+		case storage.MetricsTypeGauge:
+			value, _ := mStorage.GetGauge(request.ID)
+			if value == nil {
+				http.Error(res, "Metrics not found", http.StatusNotFound)
+				return
+			}
+			response.Value = value
+		case storage.MetricsTypeCounter:
+			value, _ := mStorage.GetCounter(request.ID)
+			if value == nil {
+				http.Error(res, "Metrics not found", http.StatusNotFound)
+				return
+			}
+			response.Delta = value
+		}
+
+		resp, err := json.Marshal(response)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+		_, err = res.Write(resp)
+		if err != nil {
+			logger.Log.Errorf("Failed to write response body")
+		}
+	}
+}
+
 func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -261,6 +322,8 @@ func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 	})
 
 	router.Get("/value/{metricsType}/{metricsName}", handleValue(mStorage))
+
+	router.Post("/value", handleValueJSON(mStorage))
 
 	router.Get("/", handleRoot(mStorage))
 
