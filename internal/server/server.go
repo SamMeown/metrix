@@ -331,7 +331,7 @@ func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 }
 
 func Start(conf config.Config, mStorage storage.MetricsStorage) {
-	err := logger.Initialize("debug")
+	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
 	}

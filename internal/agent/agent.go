@@ -5,10 +5,17 @@ import (
 	"github.com/SamMeown/metrix/internal/agent/client"
 	"github.com/SamMeown/metrix/internal/agent/config"
 	"github.com/SamMeown/metrix/internal/agent/metrics"
+	"github.com/SamMeown/metrix/internal/logger"
 	"time"
 )
 
 func Start(conf config.Config, collector metrics.Collector, client *client.MetricsClient) {
+	err := logger.Initialize("info")
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Log.Sync()
+
 	var secondsElapsed int64
 
 	for {
