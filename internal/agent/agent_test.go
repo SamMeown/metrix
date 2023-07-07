@@ -52,7 +52,7 @@ func TestMetricsClientRequest(t *testing.T) {
 
 			mClient := client.NewMetricsCustomClient("localhost:8080", testClient)
 
-			mClient.ReportMetrics(tt.metricsName, tt.metricsValue)
+			mClient.ReportMetricsV1(tt.metricsName, tt.metricsValue)
 		})
 	}
 }
