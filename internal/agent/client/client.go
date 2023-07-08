@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"github.com/SamMeown/metrix/internal/logger"
@@ -31,6 +32,29 @@ func NewMetricsCustomClient(baseURL string, client http.Client) *MetricsClient {
 		Client:  client,
 		baseURL: fmt.Sprintf("http://%s/update", baseURL),
 	}
+}
+
+func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
+	buf := bytes.Buffer{}
+	gz, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(gz, body)
+	if err != nil {
+		return nil, err
+	}
+	gz.Close()
+
+	req, err := http.NewRequest(method, url, &buf)
+	if err != nil {
+		return req, err
+	}
+
+	req.Header.Set("Content-Encoding", "gzip")
+
+	return req, nil
 }
 
 func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsStorageGetter) {
@@ -71,7 +95,7 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(body))
+	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(body))
 	if err != nil {
 		panic(err)
 	}
