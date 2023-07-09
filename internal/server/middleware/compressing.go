@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"compress/gzip"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -78,6 +79,35 @@ func (g *gzipWriter) Close() error {
 	return nil
 }
 
+type gzipReader struct {
+	r  io.ReadCloser
+	zr *gzip.Reader
+}
+
+func newGzipReader(r io.ReadCloser) (*gzipReader, error) {
+	zr, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &gzipReader{
+		r:  r,
+		zr: zr,
+	}, nil
+}
+
+func (g *gzipReader) Read(p []byte) (int, error) {
+	return g.zr.Read(p)
+}
+
+func (g *gzipReader) Close() error {
+	if err := g.r.Close(); err != nil {
+		return err
+	}
+
+	return g.zr.Close()
+}
+
 func Compressing(next http.Handler) http.Handler {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		acceptEncoding := req.Header.Get("Accept-Encoding")
@@ -86,6 +116,19 @@ func Compressing(next http.Handler) http.Handler {
 			gzipRes := newGzipWriter(res)
 			defer gzipRes.Close()
 			res = gzipRes
+		}
+
+		contentEncoding := req.Header.Get("Content-Encoding")
+		gzipEncoded := strings.HasPrefix(contentEncoding, "gzip")
+		if gzipEncoded {
+			gr, err := newGzipReader(req.Body)
+			if err != nil {
+				res.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			defer gr.Close()
+
+			req.Body = gr
 		}
 
 		next.ServeHTTP(res, req)
