@@ -305,7 +305,7 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 
 func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 	router := chi.NewRouter()
-	router.Use(middleware.StripSlashes, middlewares.Logging)
+	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
 	router.Route("/update", func(router chi.Router) {
