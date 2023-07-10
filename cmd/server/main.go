@@ -5,6 +5,9 @@ import (
 	"github.com/SamMeown/metrix/internal/server/config"
 	"github.com/SamMeown/metrix/internal/server/saver"
 	"github.com/SamMeown/metrix/internal/storage"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -14,5 +17,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server.Start(serverConfig, metricsStorage, storageSaver)
+
+	go func() {
+		gracefulShutdown := make(chan os.Signal, 1)
+		signal.Notify(gracefulShutdown,
+			syscall.SIGHUP,
+			syscall.SIGINT,
+			syscall.SIGTERM,
+			syscall.SIGQUIT)
+
+		<-gracefulShutdown
+		server.Stop()
+	}()
+
+	server.Run(serverConfig, metricsStorage, storageSaver)
 }

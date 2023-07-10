@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/SamMeown/metrix/internal/logger"
 	"github.com/SamMeown/metrix/internal/models"
@@ -12,6 +13,7 @@ import (
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -353,7 +355,9 @@ func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
 	}
 }
 
-func Start(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
+var server *http.Server
+
+func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
 	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
@@ -367,8 +371,24 @@ func Start(conf config.Config, mStorage storage.MetricsStorage, saver *saver.Met
 		}
 	}
 
-	err = http.ListenAndServe(conf.Address, metricsRouter(conf, mStorage, saver))
-	if err != nil {
+	server = &http.Server{
+		Addr:    conf.Address,
+		Handler: metricsRouter(conf, mStorage, saver),
+	}
+	err = server.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
+	}
+
+	err = saver.Save()
+	if err != nil {
+		logger.Log.Debugf("Error loading db: %s", err.Error())
+	}
+	logger.Log.Infof("Server is stopped. Storage is saved.")
+}
+
+func Stop() {
+	if err := server.Close(); err != nil {
+		log.Fatalf("HTTP close error: %v", err)
 	}
 }
