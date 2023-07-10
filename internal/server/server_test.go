@@ -1,6 +1,8 @@
 package server
 
 import (
+	"github.com/SamMeown/metrix/internal/server/config"
+	"github.com/SamMeown/metrix/internal/server/saver"
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -96,10 +98,17 @@ func TestHandleUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
+			testConfig := config.Config{
+				StoreInterval: 999999,
+				Restore:       false,
+			}
+			nullSaver := &saver.MetricsStorageSaver{}
 			mStorage := storage.New()
+
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(mStorage)
+			handler := metricsRouter(testConfig, mStorage, nullSaver)
 
 			handler.ServeHTTP(recorder, req)
 
