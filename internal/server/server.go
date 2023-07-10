@@ -8,11 +8,13 @@ import (
 	"github.com/SamMeown/metrix/internal/models"
 	"github.com/SamMeown/metrix/internal/server/config"
 	middlewares "github.com/SamMeown/metrix/internal/server/middleware"
+	"github.com/SamMeown/metrix/internal/server/saver"
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var tableTemplate = `
@@ -58,7 +60,7 @@ var tableRowTemlate = `<tr>
     <td>%v</td>
   </tr>`
 
-func handleUpdateJSON(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
+func handleUpdateJSON(mStorage storage.MetricsStorage, onUpdate func()) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 
@@ -126,10 +128,12 @@ func handleUpdateJSON(mStorage storage.MetricsStorage) func(http.ResponseWriter,
 		if err != nil {
 			logger.Log.Errorf("Failed to write response body")
 		}
+
+		onUpdate()
 	}
 }
 
-func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
+func handleUpdate(mStorage storage.MetricsStorage, onUpdate func()) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
@@ -178,6 +182,8 @@ func handleUpdate(mStorage storage.MetricsStorage) func(http.ResponseWriter, *ht
 		}
 
 		res.WriteHeader(http.StatusOK)
+
+		onUpdate()
 	}
 }
 
@@ -303,19 +309,20 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 	}
 }
 
-func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
+func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
+	onUpdateDone := onUpdate(conf.StoreInterval, saver)
 	router.Route("/update", func(router chi.Router) {
-		router.Post("/", handleUpdateJSON(mStorage))
+		router.Post("/", handleUpdateJSON(mStorage, onUpdateDone))
 		router.Route("/{metricsType}", func(router chi.Router) {
-			router.Post("/", handleUpdate(mStorage))
+			router.Post("/", handleUpdate(mStorage, onUpdateDone))
 			router.Route("/{metricsName}", func(router chi.Router) {
-				router.Post("/", handleUpdate(mStorage))
+				router.Post("/", handleUpdate(mStorage, onUpdateDone))
 				router.Route("/{metricsValue}", func(router chi.Router) {
-					router.Post("/", handleUpdate(mStorage))
+					router.Post("/", handleUpdate(mStorage, onUpdateDone))
 				})
 			})
 		})
@@ -330,14 +337,37 @@ func metricsRouter(mStorage storage.MetricsStorage) chi.Router {
 	return router
 }
 
-func Start(conf config.Config, mStorage storage.MetricsStorage) {
+func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
+	var lastSaveTime time.Time = time.Now()
+	return func() {
+		if interval == 0 ||
+			time.Since(lastSaveTime) > time.Duration(interval)*time.Second {
+
+			err := saver.Save()
+			if err != nil {
+				logger.Log.Debugf("Error saving db: %s", err.Error())
+			}
+
+			lastSaveTime = time.Now()
+		}
+	}
+}
+
+func Start(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
 	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
 	}
 	defer logger.Log.Sync()
 
-	err = http.ListenAndServe(conf.Address, metricsRouter(mStorage))
+	if conf.Restore {
+		err = saver.Load()
+		if err != nil {
+			logger.Log.Debugf("Error loading db: %s", err.Error())
+		}
+	}
+
+	err = http.ListenAndServe(conf.Address, metricsRouter(conf, mStorage, saver))
 	if err != nil {
 		panic(err)
 	}

@@ -2,8 +2,7 @@ package config
 
 import (
 	"flag"
-	"os"
-	"strconv"
+	"github.com/SamMeown/metrix/internal/utils/config_utils"
 )
 
 type Config struct {
@@ -21,33 +20,17 @@ func Parse() Config {
 
 	flag.Parse()
 
-	if address, ok := lookupEnvString("ADDRESS"); ok {
+	if address, ok := config_utils.LookupEnvString("ADDRESS"); ok {
 		config.ServerBaseAddress = address
 	}
 
-	if pollInterval, ok := lookupEnvInt("POLL_INTERVAL"); ok {
+	if pollInterval, ok := config_utils.LookupEnvInt("POLL_INTERVAL"); ok {
 		config.PollInterval = pollInterval
 	}
 
-	if reportInterval, ok := lookupEnvInt("REPORT_INTERVAL"); ok {
+	if reportInterval, ok := config_utils.LookupEnvInt("REPORT_INTERVAL"); ok {
 		config.ReportInterval = reportInterval
 	}
 
 	return config
-}
-
-var lookupEnvString = os.LookupEnv
-
-func lookupEnvInt(name string) (int, bool) {
-	value, ok := os.LookupEnv(name)
-	if !ok {
-		return 0, false
-	}
-
-	intValue, err := strconv.ParseInt(value, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-
-	return int(intValue), true
 }
