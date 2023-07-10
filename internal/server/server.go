@@ -338,7 +338,7 @@ func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *s
 }
 
 func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
-	var lastSaveTime time.Time = time.Now()
+	var lastSaveTime = time.Now()
 	return func() {
 		if interval == 0 ||
 			time.Since(lastSaveTime) > time.Duration(interval)*time.Second {
