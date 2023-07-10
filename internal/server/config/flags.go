@@ -19,19 +19,19 @@ func Parse() (config Config) {
 	flag.BoolVar(&config.Restore, "r", true, "should restore from saved dump on start")
 	flag.Parse()
 
-	if envAddress, ok := config_utils.LookupEnvString("ADDRESS"); ok {
+	if envAddress, ok := configutils.LookupEnvString("ADDRESS"); ok {
 		config.Address = envAddress
 	}
 
-	if envStoreInterval, ok := config_utils.LookupEnvInt("STORE_INTERVAL"); ok {
+	if envStoreInterval, ok := configutils.LookupEnvInt("STORE_INTERVAL"); ok {
 		config.StoreInterval = envStoreInterval
 	}
 
-	if envStoragePath, ok := config_utils.LookupEnvString("FILE_STORAGE_PATH"); ok {
+	if envStoragePath, ok := configutils.LookupEnvString("FILE_STORAGE_PATH"); ok {
 		config.StoragePath = envStoragePath
 	}
 
-	if envRestore, ok := config_utils.LookupEnvBool("RESTORE"); ok {
+	if envRestore, ok := configutils.LookupEnvBool("RESTORE"); ok {
 		config.Restore = envRestore
 	}
 

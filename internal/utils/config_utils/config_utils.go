@@ -1,4 +1,4 @@
-package config_utils
+package configutils
 
 import (
 	"os"

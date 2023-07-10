@@ -20,15 +20,15 @@ func Parse() Config {
 
 	flag.Parse()
 
-	if address, ok := config_utils.LookupEnvString("ADDRESS"); ok {
+	if address, ok := configutils.LookupEnvString("ADDRESS"); ok {
 		config.ServerBaseAddress = address
 	}
 
-	if pollInterval, ok := config_utils.LookupEnvInt("POLL_INTERVAL"); ok {
+	if pollInterval, ok := configutils.LookupEnvInt("POLL_INTERVAL"); ok {
 		config.PollInterval = pollInterval
 	}
 
-	if reportInterval, ok := config_utils.LookupEnvInt("REPORT_INTERVAL"); ok {
+	if reportInterval, ok := configutils.LookupEnvInt("REPORT_INTERVAL"); ok {
 		config.ReportInterval = reportInterval
 	}
 
