@@ -5,12 +5,13 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/SamMeown/metrix/internal/logger"
-	"github.com/SamMeown/metrix/internal/models"
-	"github.com/SamMeown/metrix/internal/storage"
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/SamMeown/metrix/internal/logger"
+	"github.com/SamMeown/metrix/internal/models"
+	"github.com/SamMeown/metrix/internal/storage"
 )
 
 type gauge = float64

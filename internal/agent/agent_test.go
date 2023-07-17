@@ -1,10 +1,11 @@
 package agent
 
 import (
-	"github.com/SamMeown/metrix/internal/agent/client"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+
+	"github.com/SamMeown/metrix/internal/agent/client"
+	"github.com/stretchr/testify/assert"
 )
 
 type RoundTripFunc func(req *http.Request) *http.Response

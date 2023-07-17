@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"github.com/SamMeown/metrix/internal/logger"
 	"net/http"
 	"time"
+
+	"github.com/SamMeown/metrix/internal/logger"
 )
 
 type responseData struct {

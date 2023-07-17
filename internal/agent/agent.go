@@ -2,11 +2,12 @@ package agent
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/SamMeown/metrix/internal/agent/client"
 	"github.com/SamMeown/metrix/internal/agent/config"
 	"github.com/SamMeown/metrix/internal/agent/metrics"
 	"github.com/SamMeown/metrix/internal/logger"
-	"time"
 )
 
 func Start(conf config.Config, collector metrics.Collector, client *client.MetricsClient) {

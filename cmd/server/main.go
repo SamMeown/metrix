@@ -1,13 +1,14 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/SamMeown/metrix/internal/server"
 	"github.com/SamMeown/metrix/internal/server/config"
 	"github.com/SamMeown/metrix/internal/server/saver"
 	"github.com/SamMeown/metrix/internal/storage"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {

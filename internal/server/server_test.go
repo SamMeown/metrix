@@ -1,14 +1,15 @@
 package server
 
 import (
-	"github.com/SamMeown/metrix/internal/server/config"
-	"github.com/SamMeown/metrix/internal/server/saver"
-	"github.com/SamMeown/metrix/internal/storage"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/SamMeown/metrix/internal/server/config"
+	"github.com/SamMeown/metrix/internal/server/saver"
+	"github.com/SamMeown/metrix/internal/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleUpdate(t *testing.T) {

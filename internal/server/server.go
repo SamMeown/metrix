@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/SamMeown/metrix/internal/logger"
 	"github.com/SamMeown/metrix/internal/models"
 	"github.com/SamMeown/metrix/internal/server/config"
@@ -13,10 +18,6 @@ import (
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"log"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 var tableTemplate = `

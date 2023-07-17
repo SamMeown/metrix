@@ -3,10 +3,11 @@ package saver
 import (
 	"bufio"
 	"encoding/json"
-	"github.com/SamMeown/metrix/internal/models"
-	"github.com/SamMeown/metrix/internal/storage"
 	"io"
 	"os"
+
+	"github.com/SamMeown/metrix/internal/models"
+	"github.com/SamMeown/metrix/internal/storage"
 )
 
 type MetricsStorageSaver struct {

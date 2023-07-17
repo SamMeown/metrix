@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+
 	"github.com/SamMeown/metrix/internal/utils/config_utils"
 )
 
