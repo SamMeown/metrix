@@ -1,10 +1,11 @@
 package metrics
 
 import (
-	"github.com/SamMeown/metrix/internal/storage"
 	"math/rand"
 	"reflect"
 	"runtime"
+
+	"github.com/SamMeown/metrix/internal/storage"
 )
 
 type gauge = float64

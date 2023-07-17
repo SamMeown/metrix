@@ -1,10 +1,11 @@
 package agent
 
 import (
-	"github.com/SamMeown/metrix/internal/agent/client"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+
+	"github.com/SamMeown/metrix/internal/agent/client"
+	"github.com/stretchr/testify/assert"
 )
 
 type RoundTripFunc func(req *http.Request) *http.Response
@@ -52,7 +53,7 @@ func TestMetricsClientRequest(t *testing.T) {
 
 			mClient := client.NewMetricsCustomClient("localhost:8080", testClient)
 
-			mClient.ReportMetrics(tt.metricsName, tt.metricsValue)
+			mClient.ReportMetricsV1(tt.metricsName, tt.metricsValue)
 		})
 	}
 }
