@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -288,6 +290,19 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 	}
 }
 
+func handlePing(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
+		defer cancel()
+		if err := db.PingContext(ctx); err != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
 func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -312,7 +327,7 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 	}
 }
 
-func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) chi.Router {
+func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver, db *sql.DB) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
 	// Need to route update requests to the same handler even if some named path components are absent
@@ -334,6 +349,8 @@ func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *s
 	router.Get("/value/{metricsType}/{metricsName}", handleValue(mStorage))
 
 	router.Post("/value", handleValueJSON(mStorage))
+
+	router.Get("/ping", handlePing(db))
 
 	router.Get("/", handleRoot(mStorage))
 
@@ -358,7 +375,7 @@ func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
 
 var server *http.Server
 
-func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
+func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver, db *sql.DB) {
 	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
@@ -374,7 +391,7 @@ func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.Metri
 
 	server = &http.Server{
 		Addr:    conf.Address,
-		Handler: metricsRouter(conf, mStorage, saver),
+		Handler: metricsRouter(conf, mStorage, saver, db),
 	}
 	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
