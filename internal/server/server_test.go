@@ -113,7 +113,7 @@ func TestHandleUpdate(t *testing.T) {
 
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(testConfig, mStorage, nullSaver)
+			handler := metricsRouter(testConfig, mStorage, nullSaver, nil)
 
 			handler.ServeHTTP(recorder, req)
 
@@ -179,7 +179,7 @@ func TestHandleValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(testConfig, mStorage, nullSaver)
+			handler := metricsRouter(testConfig, mStorage, nullSaver, nil)
 
 			handler.ServeHTTP(recorder, req)
 
