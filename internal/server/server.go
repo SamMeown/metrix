@@ -292,6 +292,11 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 
 func handlePing(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
+		if db == nil {
+			res.WriteHeader(http.StatusOK)
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
 		defer cancel()
 		if err := db.PingContext(ctx); err != nil {
@@ -358,6 +363,10 @@ func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *s
 }
 
 func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
+	if saver == nil {
+		return func() {}
+	}
+
 	var lastSaveTime = time.Now()
 	return func() {
 		if interval == 0 ||
@@ -382,11 +391,21 @@ func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.Metri
 	}
 	defer logger.Log.Sync()
 
-	if conf.Restore {
-		err = saver.Load()
-		if err != nil {
-			logger.Log.Debugf("Error loading db: %s", err.Error())
+	if saver != nil {
+		if conf.Restore {
+			err := saver.Load()
+			if err != nil {
+				logger.Log.Debugf("Error loading db: %s", err.Error())
+			}
 		}
+
+		defer func() {
+			err := saver.Save()
+			if err != nil {
+				logger.Log.Debugf("Error saving db: %s", err.Error())
+			}
+			logger.Log.Infof("Storage is saved.")
+		}()
 	}
 
 	server = &http.Server{
@@ -398,11 +417,7 @@ func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.Metri
 		panic(err)
 	}
 
-	err = saver.Save()
-	if err != nil {
-		logger.Log.Debugf("Error loading db: %s", err.Error())
-	}
-	logger.Log.Infof("Server is stopped. Storage is saved.")
+	logger.Log.Infof("Server is stopped.")
 }
 
 func Stop() {

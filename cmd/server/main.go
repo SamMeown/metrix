@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"github.com/SamMeown/metrix/internal/storage"
+	"github.com/SamMeown/metrix/internal/storage/pg"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,22 +14,37 @@ import (
 	"github.com/SamMeown/metrix/internal/server"
 	"github.com/SamMeown/metrix/internal/server/config"
 	"github.com/SamMeown/metrix/internal/server/saver"
-	"github.com/SamMeown/metrix/internal/storage"
 )
 
 func main() {
+	ctx := context.Background()
 	serverConfig := config.Parse()
 
-	db, err := sql.Open("pgx", serverConfig.DatabaseDSN)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
+	var metricsStorage storage.MetricsStorage
+	var storageSaver *saver.MetricsStorageSaver
+	var db *sql.DB
+	var err error
+	if len(serverConfig.DatabaseDSN) > 0 {
+		db, err = sql.Open("pgx", serverConfig.DatabaseDSN)
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
 
-	metricsStorage := storage.New()
-	storageSaver, err := saver.NewMetricsStorageSaver(metricsStorage, serverConfig.StoragePath)
-	if err != nil {
-		panic(err)
+		pgStorage := pg.NewStorage(db)
+		err = pgStorage.Bootstrap(ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		metricsStorage = pgStorage
+	} else {
+		metricsStorage = storage.New()
+
+		storageSaver, err = saver.NewMetricsStorageSaver(metricsStorage, serverConfig.StoragePath)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	go func() {
