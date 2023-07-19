@@ -56,7 +56,9 @@ func (s Storage) GetGauge(name string) (*float64, error) {
 
 	var value float64
 	err := row.Scan(&value)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -72,7 +74,9 @@ func (s Storage) GetCounter(name string) (*int64, error) {
 
 	var value int64
 	err := row.Scan(&value)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
