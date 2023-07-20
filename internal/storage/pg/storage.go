@@ -83,8 +83,8 @@ func (s Storage) GetCounter(name string) (*int64, error) {
 	return &value, nil
 }
 
-func (s Storage) GetAll() (storage.MetricsStorageSnapshot, error) {
-	rv := storage.MetricsStorageSnapshot{
+func (s Storage) GetAll() (storage.MetricsStorageItems, error) {
+	rv := storage.MetricsStorageItems{
 		Gauges:   make(map[string]float64),
 		Counters: make(map[string]int64),
 	}
@@ -97,7 +97,7 @@ func (s Storage) GetAll() (storage.MetricsStorageSnapshot, error) {
 		FROM counters;
 	`)
 	if err != nil {
-		return storage.MetricsStorageSnapshot{}, err
+		return storage.MetricsStorageItems{}, err
 	}
 	defer rows.Close()
 
@@ -109,7 +109,7 @@ func (s Storage) GetAll() (storage.MetricsStorageSnapshot, error) {
 		)
 		err = rows.Scan(&name, &gauge, &counter)
 		if err != nil {
-			return storage.MetricsStorageSnapshot{}, err
+			return storage.MetricsStorageItems{}, err
 		}
 
 		if gauge.Valid {
@@ -120,7 +120,7 @@ func (s Storage) GetAll() (storage.MetricsStorageSnapshot, error) {
 	}
 
 	if err = rows.Err(); err != nil {
-		return storage.MetricsStorageSnapshot{}, err
+		return storage.MetricsStorageItems{}, err
 	}
 
 	return rv, nil

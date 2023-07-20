@@ -5,7 +5,7 @@ const (
 	MetricsTypeCounter = "counter"
 )
 
-type MetricsStorageSnapshot struct {
+type MetricsStorageItems struct {
 	Gauges   map[string]float64
 	Counters map[string]int64
 }
@@ -13,7 +13,7 @@ type MetricsStorageSnapshot struct {
 type MetricsStorageGetter interface {
 	GetGauge(name string) (*float64, error)
 	GetCounter(name string) (*int64, error)
-	GetAll() (MetricsStorageSnapshot, error)
+	GetAll() (MetricsStorageItems, error)
 }
 
 type MetricsStorage interface {
@@ -50,8 +50,8 @@ func (m memStorage) GetCounter(name string) (*int64, error) {
 	return nil, nil
 }
 
-func (m memStorage) GetAll() (MetricsStorageSnapshot, error) {
-	rv := MetricsStorageSnapshot{
+func (m memStorage) GetAll() (MetricsStorageItems, error) {
+	rv := MetricsStorageItems{
 		Gauges:   make(map[string]float64, len(m.gauges)),
 		Counters: make(map[string]int64, len(m.counters)),
 	}

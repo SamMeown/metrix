@@ -35,10 +35,10 @@ func (m *MockMetricsStorageGetter) EXPECT() *MockMetricsStorageGetterMockRecorde
 }
 
 // GetAll mocks base method.
-func (m *MockMetricsStorageGetter) GetAll() (storage.MetricsStorageSnapshot, error) {
+func (m *MockMetricsStorageGetter) GetAll() (storage.MetricsStorageItems, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAll")
-	ret0, _ := ret[0].(storage.MetricsStorageSnapshot)
+	ret0, _ := ret[0].(storage.MetricsStorageItems)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,10 +103,10 @@ func (m *MockMetricsStorage) EXPECT() *MockMetricsStorageMockRecorder {
 }
 
 // GetAll mocks base method.
-func (m *MockMetricsStorage) GetAll() (storage.MetricsStorageSnapshot, error) {
+func (m *MockMetricsStorage) GetAll() (storage.MetricsStorageItems, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAll")
-	ret0, _ := ret[0].(storage.MetricsStorageSnapshot)
+	ret0, _ := ret[0].(storage.MetricsStorageItems)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
