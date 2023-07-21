@@ -15,6 +15,11 @@ func NewStorage(conn *sql.DB) *Storage {
 	return &Storage{conn: conn}
 }
 
+type requestExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 func (s Storage) Bootstrap(ctx context.Context) error {
 	tr, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -47,8 +52,8 @@ func (s Storage) Bootstrap(ctx context.Context) error {
 	return tr.Commit()
 }
 
-func (s Storage) GetGauge(name string) (*float64, error) {
-	row := s.conn.QueryRowContext(
+func (s Storage) getGauge(re requestExecutor, name string) (*float64, error) {
+	row := re.QueryRowContext(
 		context.TODO(),
 		"SELECT value FROM gauges WHERE name = $1;",
 		name,
@@ -65,8 +70,12 @@ func (s Storage) GetGauge(name string) (*float64, error) {
 	return &value, nil
 }
 
-func (s Storage) GetCounter(name string) (*int64, error) {
-	row := s.conn.QueryRowContext(
+func (s Storage) GetGauge(name string) (*float64, error) {
+	return s.getGauge(s.conn, name)
+}
+
+func (s Storage) getCounter(re requestExecutor, name string) (*int64, error) {
+	row := re.QueryRowContext(
 		context.TODO(),
 		"SELECT value FROM counters WHERE name = $1;",
 		name,
@@ -81,6 +90,49 @@ func (s Storage) GetCounter(name string) (*int64, error) {
 	}
 
 	return &value, nil
+}
+
+func (s Storage) GetCounter(name string) (*int64, error) {
+	return s.getCounter(s.conn, name)
+}
+
+func (s Storage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStorageItems, error) {
+	tr, err := s.conn.BeginTx(
+		context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelRepeatableRead},
+	)
+	if err != nil {
+		return storage.MetricsStorageItems{}, err
+	}
+	defer tr.Rollback()
+
+	rv := storage.MetricsStorageItems{}
+	for _, name := range names.Gauges {
+		gauge, err := s.getGauge(tr, name)
+		if err != nil {
+			return storage.MetricsStorageItems{}, err
+		}
+		if gauge == nil {
+			continue
+		}
+		rv.Gauges[name] = *gauge
+	}
+	for _, name := range names.Counters {
+		counter, err := s.getCounter(tr, name)
+		if err != nil {
+			return storage.MetricsStorageItems{}, err
+		}
+		if counter == nil {
+			continue
+		}
+		rv.Counters[name] = *counter
+	}
+
+	if err := tr.Commit(); err != nil {
+		return storage.MetricsStorageItems{}, err
+	}
+
+	return rv, nil
 }
 
 func (s Storage) GetAll() (storage.MetricsStorageItems, error) {
@@ -124,10 +176,6 @@ func (s Storage) GetAll() (storage.MetricsStorageItems, error) {
 	}
 
 	return rv, nil
-}
-
-type requestExecutor interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 func (s Storage) setGauge(re requestExecutor, name string, value float64) error {

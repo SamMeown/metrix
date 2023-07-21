@@ -79,6 +79,21 @@ func (mr *MockMetricsStorageGetterMockRecorder) GetGauge(name interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGauge", reflect.TypeOf((*MockMetricsStorageGetter)(nil).GetGauge), name)
 }
 
+// GetMany mocks base method.
+func (m *MockMetricsStorageGetter) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStorageItems, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMany", names)
+	ret0, _ := ret[0].(storage.MetricsStorageItems)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMany indicates an expected call of GetMany.
+func (mr *MockMetricsStorageGetterMockRecorder) GetMany(names interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMany", reflect.TypeOf((*MockMetricsStorageGetter)(nil).GetMany), names)
+}
+
 // MockMetricsStorage is a mock of MetricsStorage interface.
 type MockMetricsStorage struct {
 	ctrl     *gomock.Controller
@@ -145,6 +160,21 @@ func (m *MockMetricsStorage) GetGauge(name string) (*float64, error) {
 func (mr *MockMetricsStorageMockRecorder) GetGauge(name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGauge", reflect.TypeOf((*MockMetricsStorage)(nil).GetGauge), name)
+}
+
+// GetMany mocks base method.
+func (m *MockMetricsStorage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStorageItems, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMany", names)
+	ret0, _ := ret[0].(storage.MetricsStorageItems)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMany indicates an expected call of GetMany.
+func (mr *MockMetricsStorageMockRecorder) GetMany(names interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMany", reflect.TypeOf((*MockMetricsStorage)(nil).GetMany), names)
 }
 
 // SetCounter mocks base method.
