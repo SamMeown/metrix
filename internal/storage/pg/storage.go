@@ -152,7 +152,7 @@ func (s Storage) setCounter(re requestExecutor, name string, value int64) error 
 		`
 			INSERT INTO counters (name, value, updated_at) 
 			VALUES ($1, $2, $3) 
-			ON CONFLICT(name) DO UPDATE SET value = $2, updated_at = $3;
+			ON CONFLICT(name) DO UPDATE SET value = counters.value + $2, updated_at = $3;
 		`,
 		name,
 		value,
