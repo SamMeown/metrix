@@ -1,5 +1,7 @@
 package storage
 
+import "golang.org/x/exp/maps"
+
 const (
 	MetricsTypeGauge   = "gauge"
 	MetricsTypeCounter = "counter"
@@ -20,6 +22,7 @@ type MetricsStorage interface {
 	MetricsStorageGetter
 	SetGauge(name string, value float64) error
 	SetCounter(name string, value int64) error
+	SetMany(items MetricsStorageItems) error
 }
 
 func New() MetricsStorage {
@@ -63,6 +66,13 @@ func (m memStorage) GetAll() (MetricsStorageItems, error) {
 	}
 
 	return rv, nil
+}
+
+func (m memStorage) SetMany(items MetricsStorageItems) error {
+	maps.Copy(m.gauges, items.Gauges)
+	maps.Copy(m.counters, items.Counters)
+
+	return nil
 }
 
 func (m memStorage) SetGauge(name string, value float64) error {

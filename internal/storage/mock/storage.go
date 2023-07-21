@@ -174,3 +174,17 @@ func (mr *MockMetricsStorageMockRecorder) SetGauge(name, value interface{}) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetGauge", reflect.TypeOf((*MockMetricsStorage)(nil).SetGauge), name, value)
 }
+
+// SetMany mocks base method.
+func (m *MockMetricsStorage) SetMany(items storage.MetricsStorageItems) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMany", items)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMany indicates an expected call of SetMany.
+func (mr *MockMetricsStorageMockRecorder) SetMany(items interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMany", reflect.TypeOf((*MockMetricsStorage)(nil).SetMany), items)
+}

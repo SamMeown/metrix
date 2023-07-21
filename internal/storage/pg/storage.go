@@ -126,8 +126,12 @@ func (s Storage) GetAll() (storage.MetricsStorageItems, error) {
 	return rv, nil
 }
 
-func (s Storage) SetGauge(name string, value float64) error {
-	_, err := s.conn.ExecContext(
+type requestExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func (s Storage) setGauge(re requestExecutor, name string, value float64) error {
+	_, err := re.ExecContext(
 		context.TODO(),
 		`
 			INSERT INTO gauges (name, value, updated_at) 
@@ -142,8 +146,8 @@ func (s Storage) SetGauge(name string, value float64) error {
 	return err
 }
 
-func (s Storage) SetCounter(name string, value int64) error {
-	_, err := s.conn.ExecContext(
+func (s Storage) setCounter(re requestExecutor, name string, value int64) error {
+	_, err := re.ExecContext(
 		context.TODO(),
 		`
 			INSERT INTO counters (name, value, updated_at) 
@@ -156,4 +160,36 @@ func (s Storage) SetCounter(name string, value int64) error {
 	)
 
 	return err
+}
+
+func (s Storage) SetGauge(name string, value float64) error {
+	return s.setGauge(s.conn, name, value)
+}
+
+func (s Storage) SetCounter(name string, value int64) error {
+	return s.setCounter(s.conn, name, value)
+}
+
+func (s Storage) SetMany(items storage.MetricsStorageItems) error {
+	tr, err := s.conn.BeginTx(context.TODO(), nil)
+	if err != nil {
+		return err
+	}
+	defer tr.Rollback()
+
+	for name, value := range items.Gauges {
+		err := s.setGauge(tr, name, value)
+		if err != nil {
+			return err
+		}
+	}
+
+	for name, value := range items.Counters {
+		err := s.setCounter(tr, name, value)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tr.Commit()
 }
