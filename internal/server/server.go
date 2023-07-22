@@ -208,6 +208,7 @@ func handleUpdatesJSON(mStorage storage.MetricsStorage, onUpdate func()) func(ht
 		}
 
 		for name, value := range updatedItems.Gauges {
+			value := value
 			response = append(
 				response,
 				models.Metrics{
@@ -218,6 +219,7 @@ func handleUpdatesJSON(mStorage storage.MetricsStorage, onUpdate func()) func(ht
 			)
 		}
 		for name, value := range updatedItems.Counters {
+			value := value
 			floatValue := float64(value)
 			response = append(
 				response,
