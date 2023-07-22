@@ -180,7 +180,7 @@ func handleUpdatesJSON(mStorage storage.MetricsStorage, onUpdate func()) func(ht
 				}
 			case storage.MetricsTypeCounter:
 				if m.Delta != nil {
-					metricsItems.Counters[m.ID] = *m.Delta
+					metricsItems.Counters[m.ID] += *m.Delta
 				} else {
 					http.Error(res, "No metrics value", http.StatusBadRequest)
 					return
