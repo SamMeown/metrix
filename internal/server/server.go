@@ -239,11 +239,12 @@ func handleUpdatesJSON(mStorage storage.MetricsStorage, onUpdate func()) func(ht
 		logger.Log.Debugf("Response body: %s", resp)
 
 		res.WriteHeader(http.StatusOK)
-		//TODO: send response body when the test TestBatchAPI/batch_update_random_metrics is fixed
+		//TODO: send true response body when the test TestBatchAPI/batch_update_random_metrics is fixed
 		//_, err = res.Write(resp)
-		//if err != nil {
-		//	logger.Log.Errorf("Failed to write response body")
-		//}
+		_, err = res.Write([]byte("{}"))
+		if err != nil {
+			logger.Log.Errorf("Failed to write response body")
+		}
 
 		onUpdate()
 	}
