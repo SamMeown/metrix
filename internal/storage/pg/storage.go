@@ -106,7 +106,10 @@ func (s Storage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStora
 	}
 	defer tr.Rollback()
 
-	rv := storage.MetricsStorageItems{}
+	rv := storage.MetricsStorageItems{
+		Gauges:   make(map[string]float64),
+		Counters: make(map[string]int64),
+	}
 	for _, name := range names.Gauges {
 		gauge, err := s.getGauge(tr, name)
 		if err != nil {

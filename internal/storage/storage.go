@@ -99,7 +99,9 @@ func (m memStorage) GetAll() (MetricsStorageItems, error) {
 
 func (m memStorage) SetMany(items MetricsStorageItems) error {
 	maps.Copy(m.gauges, items.Gauges)
-	maps.Copy(m.counters, items.Counters)
+	for k, v := range items.Counters {
+		m.SetCounter(k, v)
+	}
 
 	return nil
 }
