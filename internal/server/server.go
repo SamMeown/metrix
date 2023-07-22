@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"log"
 	"net/http"
 	"strconv"
@@ -121,6 +122,111 @@ func handleUpdateJSON(mStorage storage.MetricsStorage, onUpdate func()) func(htt
 			counter, _ := mStorage.GetCounter(response.ID)
 			value := float64(*counter)
 			response.Value = &value
+		}
+
+		resp, err := json.Marshal(response)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
+
+		res.WriteHeader(http.StatusOK)
+		_, err = res.Write(resp)
+		if err != nil {
+			logger.Log.Errorf("Failed to write response body")
+		}
+
+		onUpdate()
+	}
+}
+
+func handleUpdatesJSON(mStorage storage.MetricsStorage, onUpdate func()) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "application/json")
+
+		var metrics []models.Metrics
+		var buf bytes.Buffer
+
+		_, err := buf.ReadFrom(req.Body)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = json.Unmarshal(buf.Bytes(), &metrics)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		logger.Log.Debugf("Body: %+v", metrics)
+
+		metricsItems := storage.MetricsStorageItems{
+			Gauges:   make(map[string]float64),
+			Counters: make(map[string]int64),
+		}
+		for _, m := range metrics {
+			if m.ID == "" {
+				http.Error(res, "No metrics name", http.StatusNotFound)
+				return
+			}
+
+			switch m.MType {
+			case storage.MetricsTypeGauge:
+				if m.Value != nil {
+					metricsItems.Gauges[m.ID] = *m.Value
+				} else {
+					http.Error(res, "No metrics value", http.StatusBadRequest)
+					return
+				}
+			case storage.MetricsTypeCounter:
+				if m.Delta != nil {
+					metricsItems.Counters[m.ID] = *m.Delta
+				} else {
+					http.Error(res, "No metrics value", http.StatusBadRequest)
+					return
+				}
+			default:
+				http.Error(res, "Wrong metrics type", http.StatusBadRequest)
+				return
+			}
+		}
+
+		if err := mStorage.SetMany(metricsItems); err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := make([]models.Metrics, 0)
+
+		updatedMetrics := storage.MetricsStorageKeys{
+			Gauges:   maps.Keys(metricsItems.Gauges),
+			Counters: maps.Keys(metricsItems.Counters),
+		}
+		updatedItems, err := mStorage.GetMany(updatedMetrics)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
+
+		for name, value := range updatedItems.Gauges {
+			response = append(
+				response,
+				models.Metrics{
+					ID:    name,
+					MType: storage.MetricsTypeGauge,
+					Value: &value,
+				},
+			)
+		}
+		for name, value := range updatedItems.Counters {
+			floatValue := float64(value)
+			response = append(
+				response,
+				models.Metrics{
+					ID:    name,
+					MType: storage.MetricsTypeCounter,
+					Value: &floatValue,
+				},
+			)
 		}
 
 		resp, err := json.Marshal(response)
@@ -335,9 +441,13 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver, db *sql.DB) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
+
+	onUpdateDone := onUpdate(conf.StoreInterval, saver)
+
+	router.Post("/updates", handleUpdatesJSON(mStorage, onUpdateDone))
+
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
-	onUpdateDone := onUpdate(conf.StoreInterval, saver)
 	router.Route("/update", func(router chi.Router) {
 		router.Post("/", handleUpdateJSON(mStorage, onUpdateDone))
 		router.Route("/{metricsType}", func(router chi.Router) {
