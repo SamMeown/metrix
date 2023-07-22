@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,7 +25,7 @@ type MetricsClient struct {
 
 func NewMetricsClient(baseURL string) *MetricsClient {
 	return &MetricsClient{
-		baseURL: fmt.Sprintf("http://%s/update", baseURL),
+		baseURL: fmt.Sprintf("http://%s/updates", baseURL),
 	}
 }
 
@@ -60,6 +61,104 @@ func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 
 func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsStorageGetter) {
 	allMetrics, _ := metricsCollection.GetAll()
+	metrics := make([]models.Metrics, 0)
+	for name, value := range allMetrics.Gauges {
+		reqMetrics, err := metricsToRequestMetrics(name, value)
+		if err != nil {
+			logger.Log.Errorln(err)
+			return
+		}
+		metrics = append(metrics, reqMetrics)
+	}
+	for name, value := range allMetrics.Counters {
+		reqMetrics, err := metricsToRequestMetrics(name, value)
+		if err != nil {
+			logger.Log.Errorln(err)
+			return
+		}
+		metrics = append(metrics, reqMetrics)
+	}
+
+	logger.Log.Debugf("Reporting metrics: %+v", metrics)
+
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		logger.Log.Errorln(err)
+		return
+	}
+
+	respCode, respBody, err := client.sendRequest(body)
+	if err != nil {
+		logger.Log.Errorln(err)
+		return
+	}
+
+	logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
+}
+
+func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {
+	var metrics = models.Metrics{ID: name}
+
+	switch typedValue := value.(type) {
+	case gauge:
+		metrics.MType = "gauge"
+		metrics.Value = &typedValue
+	case counter:
+		metrics.MType = "counter"
+		metrics.Delta = &typedValue
+	default:
+		return models.Metrics{}, errors.New("wrong metrics value type")
+	}
+
+	return metrics, nil
+}
+
+func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []byte, err error) {
+	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(requestBody))
+	if err != nil {
+		panic(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(req)
+	if err != nil {
+		return
+	}
+
+	code = response.StatusCode
+
+	defer response.Body.Close()
+	body, err = io.ReadAll(response.Body)
+
+	return
+}
+
+func (client *MetricsClient) ReportMetrics(name string, value any) error {
+	metrics, err := metricsToRequestMetrics(name, value)
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Log.Debugf("Reporting metrics: %+v", metrics)
+
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		return err
+	}
+
+	respCode, respBody, err := client.sendRequest(body)
+	if err != nil {
+		return err
+	}
+
+	logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
+
+	return nil
+}
+
+func (client *MetricsClient) ReportAllMetricsV1(metricsCollection storage.MetricsStorageGetter) {
+	allMetrics, _ := metricsCollection.GetAll()
 	for name, value := range allMetrics.Gauges {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
@@ -73,52 +172,6 @@ func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsS
 			fmt.Println(err)
 		}
 	}
-}
-
-func (client *MetricsClient) ReportMetrics(name string, value any) error {
-	var metrics = models.Metrics{ID: name}
-
-	switch typedValue := value.(type) {
-	case gauge:
-		metrics.MType = "gauge"
-		metrics.Value = &typedValue
-	case counter:
-		metrics.MType = "counter"
-		metrics.Delta = &typedValue
-	default:
-		panic("Wrong metrics value type")
-	}
-
-	logger.Log.Debugf("Reporting metrics: %+v", metrics)
-
-	body, err := json.Marshal(metrics)
-	if err != nil {
-		return err
-	}
-
-	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(body))
-	if err != nil {
-		panic(err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	response, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Debugf("Status code: %d\n", response.StatusCode)
-
-	defer response.Body.Close()
-	respBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Debugln("Report response", string(respBody))
-
-	return nil
 }
 
 func (client *MetricsClient) ReportMetricsV1(name string, value any) error {
