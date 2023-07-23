@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/SamMeown/metrix/internal/backoff"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -114,6 +116,16 @@ func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {
 }
 
 func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []byte, err error) {
+	bOff := backoff.NewBackoff([]int{1, 3, 5})
+	err = bOff.Retry(func() (e error) {
+		code, body, e = client._sendRequest(requestBody)
+		return
+	})
+
+	return
+}
+
+func (client *MetricsClient) _sendRequest(requestBody []byte) (code int, body []byte, err error) {
 	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		panic(err)
@@ -123,6 +135,10 @@ func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []b
 
 	response, err := client.Do(req)
 	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			err = backoff.NewRetryableError(err)
+		}
 		return
 	}
 
