@@ -1,12 +1,8 @@
 package retryable
 
 import (
-	"errors"
 	"github.com/SamMeown/metrix/internal/backoff"
 	"github.com/SamMeown/metrix/internal/storage"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
-	"net"
 )
 
 type Storage struct {
@@ -14,23 +10,11 @@ type Storage struct {
 	b backoff.Backoff
 }
 
-func NewStorage(s storage.MetricsStorage) *Storage {
+func NewStorage(s storage.MetricsStorage, retryableErrFunc func(error) bool) *Storage {
 	return &Storage{
 		s: s,
-		b: backoff.NewBackoff([]int{1, 3, 5}, isRetryableError),
+		b: backoff.NewBackoff([]int{1, 3, 5}, retryableErrFunc),
 	}
-}
-
-func isRetryableError(err error) bool {
-	var pgErr *pgconn.PgError
-	var netErr *net.OpError
-	if errors.As(err, &pgErr) && pgerrcode.IsConnectionException(pgErr.Code) {
-		return true
-	} else if errors.As(err, &netErr) {
-		return true
-	}
-
-	return false
 }
 
 func (s Storage) GetGauge(name string) (gauge *float64, err error) {

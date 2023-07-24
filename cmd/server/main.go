@@ -38,7 +38,7 @@ func main() {
 			panic(err)
 		}
 
-		metricsStorage = retryable.NewStorage(pgStorage)
+		metricsStorage = retryable.NewStorage(pgStorage, pg.IsRetryableError)
 	} else {
 		metricsStorage = storage.New()
 

@@ -3,7 +3,11 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"github.com/SamMeown/metrix/internal/storage"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
+	"net"
 	"time"
 )
 
@@ -243,4 +247,16 @@ func (s Storage) SetMany(items storage.MetricsStorageItems) error {
 	}
 
 	return tr.Commit()
+}
+
+func IsRetryableError(err error) bool {
+	var pgErr *pgconn.PgError
+	var netErr *net.OpError
+	if errors.As(err, &pgErr) && pgerrcode.IsConnectionException(pgErr.Code) {
+		return true
+	} else if errors.As(err, &netErr) {
+		return true
+	}
+
+	return false
 }
