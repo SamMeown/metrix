@@ -116,7 +116,7 @@ func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {
 }
 
 func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []byte, err error) {
-	bOff := backoff.NewBackoff([]int{1, 3, 5})
+	bOff := backoff.NewBackoff([]int{1, 3, 5}, nil)
 	err = bOff.Retry(func() (e error) {
 		code, body, e = client._sendRequest(requestBody)
 		return

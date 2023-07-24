@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/SamMeown/metrix/internal/storage/pg"
+	"github.com/SamMeown/metrix/internal/storage/retryable"
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,7 +38,7 @@ func main() {
 			panic(err)
 		}
 
-		metricsStorage = pgStorage
+		metricsStorage = retryable.NewStorage(pgStorage)
 	} else {
 		metricsStorage = storage.New()
 

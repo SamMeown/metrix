@@ -25,12 +25,14 @@ func (re *RetryableError) Unwrap() error {
 }
 
 type Backoff struct {
-	retries []int
+	retries        []int
+	isRetryableErr func(error) bool
 }
 
-func NewBackoff(retries []int) Backoff {
+func NewBackoff(retries []int, retryableErrFunc func(error) bool) Backoff {
 	return Backoff{
-		retries: retries,
+		retries:        retries,
+		isRetryableErr: retryableErrFunc,
 	}
 }
 
@@ -46,7 +48,8 @@ func (b Backoff) RetryableFunc(f Retryable) Retryable {
 			}
 
 			var retErr *RetryableError
-			if !errors.As(err, &retErr) {
+			if !errors.As(err, &retErr) &&
+				(b.isRetryableErr == nil || !b.isRetryableErr(err)) {
 				break
 			}
 
