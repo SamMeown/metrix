@@ -89,7 +89,7 @@ func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsS
 		return
 	}
 
-	respCode, respBody, err := client.sendRequest(body)
+	respCode, respBody, err := client.sendRequestWithRetry(body)
 	if err != nil {
 		logger.Log.Errorln(err)
 		return
@@ -115,17 +115,17 @@ func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {
 	return metrics, nil
 }
 
-func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []byte, err error) {
+func (client *MetricsClient) sendRequestWithRetry(requestBody []byte) (code int, body []byte, err error) {
 	bOff := backoff.NewBackoff([]int{1, 3, 5}, nil)
 	err = bOff.Retry(func() (e error) {
-		code, body, e = client._sendRequest(requestBody)
+		code, body, e = client.sendRequest(requestBody)
 		return
 	})
 
 	return
 }
 
-func (client *MetricsClient) _sendRequest(requestBody []byte) (code int, body []byte, err error) {
+func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []byte, err error) {
 	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		panic(err)
@@ -163,7 +163,7 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 		return err
 	}
 
-	respCode, respBody, err := client.sendRequest(body)
+	respCode, respBody, err := client.sendRequestWithRetry(body)
 	if err != nil {
 		return err
 	}
