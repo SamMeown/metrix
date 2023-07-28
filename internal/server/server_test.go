@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"github.com/SamMeown/metrix/internal/storage/mock"
 	"github.com/golang/mock/gomock"
 	"io"
@@ -113,7 +114,7 @@ func TestHandleUpdate(t *testing.T) {
 
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(testConfig, mStorage, nullSaver, nil)
+			handler := metricsRouter(context.Background(), testConfig, mStorage, nullSaver, nil)
 
 			handler.ServeHTTP(recorder, req)
 
@@ -133,8 +134,8 @@ func TestHandleValue(t *testing.T) {
 
 	gaugeValue := float64(42)
 	counterValue := int64(1)
-	mStorage.EXPECT().GetGauge("a").Return(&gaugeValue, nil)
-	mStorage.EXPECT().GetCounter("b").Return(&counterValue, nil)
+	mStorage.EXPECT().GetGauge(gomock.Any(), "a").Return(&gaugeValue, nil)
+	mStorage.EXPECT().GetCounter(gomock.Any(), "b").Return(&counterValue, nil)
 
 	nullSaver := &saver.MetricsStorageSaver{}
 	testConfig := config.Config{
@@ -179,7 +180,7 @@ func TestHandleValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(testConfig, mStorage, nullSaver, nil)
+			handler := metricsRouter(context.Background(), testConfig, mStorage, nullSaver, nil)
 
 			handler.ServeHTTP(recorder, req)
 

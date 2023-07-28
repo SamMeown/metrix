@@ -56,9 +56,9 @@ func (s Storage) Bootstrap(ctx context.Context) error {
 	return tr.Commit()
 }
 
-func (s Storage) getGauge(re requestExecutor, name string) (*float64, error) {
+func (s Storage) getGauge(ctx context.Context, re requestExecutor, name string) (*float64, error) {
 	row := re.QueryRowContext(
-		context.TODO(),
+		ctx,
 		"SELECT value FROM gauges WHERE name = $1;",
 		name,
 	)
@@ -74,13 +74,13 @@ func (s Storage) getGauge(re requestExecutor, name string) (*float64, error) {
 	return &value, nil
 }
 
-func (s Storage) GetGauge(name string) (*float64, error) {
-	return s.getGauge(s.conn, name)
+func (s Storage) GetGauge(ctx context.Context, name string) (*float64, error) {
+	return s.getGauge(ctx, s.conn, name)
 }
 
-func (s Storage) getCounter(re requestExecutor, name string) (*int64, error) {
+func (s Storage) getCounter(ctx context.Context, re requestExecutor, name string) (*int64, error) {
 	row := re.QueryRowContext(
-		context.TODO(),
+		ctx,
 		"SELECT value FROM counters WHERE name = $1;",
 		name,
 	)
@@ -96,13 +96,13 @@ func (s Storage) getCounter(re requestExecutor, name string) (*int64, error) {
 	return &value, nil
 }
 
-func (s Storage) GetCounter(name string) (*int64, error) {
-	return s.getCounter(s.conn, name)
+func (s Storage) GetCounter(ctx context.Context, name string) (*int64, error) {
+	return s.getCounter(ctx, s.conn, name)
 }
 
-func (s Storage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStorageItems, error) {
+func (s Storage) GetMany(ctx context.Context, names storage.MetricsStorageKeys) (storage.MetricsStorageItems, error) {
 	tr, err := s.conn.BeginTx(
-		context.TODO(),
+		ctx,
 		&sql.TxOptions{Isolation: sql.LevelRepeatableRead},
 	)
 	if err != nil {
@@ -115,7 +115,7 @@ func (s Storage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStora
 		Counters: make(map[string]int64),
 	}
 	for _, name := range names.Gauges {
-		gauge, err := s.getGauge(tr, name)
+		gauge, err := s.getGauge(ctx, tr, name)
 		if err != nil {
 			return storage.MetricsStorageItems{}, err
 		}
@@ -125,7 +125,7 @@ func (s Storage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStora
 		rv.Gauges[name] = *gauge
 	}
 	for _, name := range names.Counters {
-		counter, err := s.getCounter(tr, name)
+		counter, err := s.getCounter(ctx, tr, name)
 		if err != nil {
 			return storage.MetricsStorageItems{}, err
 		}
@@ -142,13 +142,13 @@ func (s Storage) GetMany(names storage.MetricsStorageKeys) (storage.MetricsStora
 	return rv, nil
 }
 
-func (s Storage) GetAll() (storage.MetricsStorageItems, error) {
+func (s Storage) GetAll(ctx context.Context) (storage.MetricsStorageItems, error) {
 	rv := storage.MetricsStorageItems{
 		Gauges:   make(map[string]float64),
 		Counters: make(map[string]int64),
 	}
 
-	rows, err := s.conn.QueryContext(context.TODO(), `
+	rows, err := s.conn.QueryContext(ctx, `
 		SELECT name, value as gauge, NULL as counter 
 		FROM gauges 
 		UNION ALL 
@@ -185,9 +185,9 @@ func (s Storage) GetAll() (storage.MetricsStorageItems, error) {
 	return rv, nil
 }
 
-func (s Storage) setGauge(re requestExecutor, name string, value float64) error {
+func (s Storage) setGauge(ctx context.Context, re requestExecutor, name string, value float64) error {
 	_, err := re.ExecContext(
-		context.TODO(),
+		ctx,
 		`
 			INSERT INTO gauges (name, value, updated_at) 
 			VALUES ($1, $2, $3) 
@@ -201,9 +201,9 @@ func (s Storage) setGauge(re requestExecutor, name string, value float64) error 
 	return err
 }
 
-func (s Storage) setCounter(re requestExecutor, name string, value int64) error {
+func (s Storage) setCounter(ctx context.Context, re requestExecutor, name string, value int64) error {
 	_, err := re.ExecContext(
-		context.TODO(),
+		ctx,
 		`
 			INSERT INTO counters (name, value, updated_at) 
 			VALUES ($1, $2, $3) 
@@ -217,30 +217,30 @@ func (s Storage) setCounter(re requestExecutor, name string, value int64) error 
 	return err
 }
 
-func (s Storage) SetGauge(name string, value float64) error {
-	return s.setGauge(s.conn, name, value)
+func (s Storage) SetGauge(ctx context.Context, name string, value float64) error {
+	return s.setGauge(ctx, s.conn, name, value)
 }
 
-func (s Storage) SetCounter(name string, value int64) error {
-	return s.setCounter(s.conn, name, value)
+func (s Storage) SetCounter(ctx context.Context, name string, value int64) error {
+	return s.setCounter(ctx, s.conn, name, value)
 }
 
-func (s Storage) SetMany(items storage.MetricsStorageItems) error {
-	tr, err := s.conn.BeginTx(context.TODO(), nil)
+func (s Storage) SetMany(ctx context.Context, items storage.MetricsStorageItems) error {
+	tr, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tr.Rollback()
 
 	for name, value := range items.Gauges {
-		err := s.setGauge(tr, name, value)
+		err := s.setGauge(ctx, tr, name, value)
 		if err != nil {
 			return err
 		}
 	}
 
 	for name, value := range items.Counters {
-		err := s.setCounter(tr, name, value)
+		err := s.setCounter(ctx, tr, name, value)
 		if err != nil {
 			return err
 		}

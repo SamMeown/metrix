@@ -60,5 +60,5 @@ func main() {
 		server.Stop()
 	}()
 
-	server.Run(serverConfig, metricsStorage, storageSaver, db)
+	server.Run(ctx, serverConfig, metricsStorage, storageSaver, db)
 }
