@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,7 +63,7 @@ func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 }
 
 func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll()
+	allMetrics, _ := metricsCollection.GetAll(context.Background())
 	metrics := make([]models.Metrics, 0)
 	for name, value := range allMetrics.Gauges {
 		reqMetrics, err := metricsToRequestMetrics(name, value)
@@ -174,7 +175,7 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 }
 
 func (client *MetricsClient) ReportAllMetricsV1(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll()
+	allMetrics, _ := metricsCollection.GetAll(context.Background())
 	for name, value := range allMetrics.Gauges {
 		err := client.ReportMetrics(name, value)
 		if err != nil {

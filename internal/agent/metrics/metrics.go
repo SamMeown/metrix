@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -67,13 +68,14 @@ func (mg *metricsCollector) Collection() storage.MetricsStorageGetter {
 func (mg *metricsCollector) CollectMetrics() {
 	mg.collectsCount++
 
-	mg.collectMemstatMetrics()
+	ctx := context.Background()
+	mg.collectMemstatMetrics(ctx)
 
-	mg.collection.SetGauge("RandomValue", float64(rand.Int()))
-	mg.collection.SetCounter("PollCount", mg.collectsCount)
+	mg.collection.SetGauge(ctx, "RandomValue", float64(rand.Int()))
+	mg.collection.SetCounter(ctx, "PollCount", mg.collectsCount)
 }
 
-func (mg *metricsCollector) collectMemstatMetrics() {
+func (mg *metricsCollector) collectMemstatMetrics(ctx context.Context) {
 	var memstats runtime.MemStats
 	runtime.ReadMemStats(&memstats)
 
@@ -90,7 +92,7 @@ func (mg *metricsCollector) collectMemstatMetrics() {
 			fieldValue = gauge(field.Int())
 		}
 
-		mg.collection.SetGauge(name, fieldValue)
+		mg.collection.SetGauge(ctx, name, fieldValue)
 	}
 }
 
