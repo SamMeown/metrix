@@ -1,6 +1,7 @@
 package backoff
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -38,7 +39,7 @@ func NewBackoff(retries []int, retryableErrFunc func(error) bool) Backoff {
 
 type Retryable func() error
 
-func (b Backoff) Retry(f Retryable) error {
+func (b Backoff) RetryContext(ctx context.Context, f Retryable) error {
 	var err error
 	for attempt := 0; ; attempt++ {
 		err = f()
@@ -52,8 +53,18 @@ func (b Backoff) Retry(f Retryable) error {
 			break
 		}
 
-		time.Sleep(time.Duration(b.retries[attempt]) * time.Second)
+		timer := time.NewTimer(time.Duration(b.retries[attempt]) * time.Second)
+		select {
+		case <-timer.C:
+			// continue
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 
 	return err
+}
+
+func (b Backoff) Retry(f Retryable) error {
+	return b.RetryContext(context.Background(), f)
 }
