@@ -38,28 +38,22 @@ func NewBackoff(retries []int, retryableErrFunc func(error) bool) Backoff {
 
 type Retryable func() error
 
-func (b Backoff) RetryableFunc(f Retryable) Retryable {
-	return func() error {
-		var err error
-		for attempt := 0; ; attempt++ {
-			err = f()
-			if err == nil || attempt > len(b.retries)-1 {
-				break
-			}
-
-			var retErr *RetryableError
-			if !errors.As(err, &retErr) &&
-				(b.isRetryableErr == nil || !b.isRetryableErr(err)) {
-				break
-			}
-
-			time.Sleep(time.Duration(b.retries[attempt]) * time.Second)
+func (b Backoff) Retry(f Retryable) error {
+	var err error
+	for attempt := 0; ; attempt++ {
+		err = f()
+		if err == nil || attempt > len(b.retries)-1 {
+			break
 		}
 
-		return err
-	}
-}
+		var retErr *RetryableError
+		if !errors.As(err, &retErr) &&
+			(b.isRetryableErr == nil || !b.isRetryableErr(err)) {
+			break
+		}
 
-func (b Backoff) Retry(f Retryable) error {
-	return b.RetryableFunc(f)()
+		time.Sleep(time.Duration(b.retries[attempt]) * time.Second)
+	}
+
+	return err
 }
