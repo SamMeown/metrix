@@ -27,11 +27,16 @@ type MetricsStorageGetter interface {
 	GetAll(ctx context.Context) (MetricsStorageItems, error)
 }
 
-type MetricsStorage interface {
-	MetricsStorageGetter
+type MetricsStorageSetter interface {
 	SetGauge(ctx context.Context, name string, value float64) error
 	SetCounter(ctx context.Context, name string, value int64) error
 	SetMany(ctx context.Context, items MetricsStorageItems) error
+}
+
+type MetricsStorage interface {
+	MetricsStorageGetter
+	MetricsStorageSetter
+	Ping(ctx context.Context) error
 }
 
 func New() MetricsStorage {
@@ -116,5 +121,9 @@ func (m memStorage) SetGauge(ctx context.Context, name string, value float64) er
 
 func (m memStorage) SetCounter(ctx context.Context, name string, value int64) error {
 	m.counters[name] += value
+	return nil
+}
+
+func (m memStorage) Ping(ctx context.Context) error {
 	return nil
 }

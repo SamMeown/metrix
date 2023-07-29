@@ -95,6 +95,71 @@ func (mr *MockMetricsStorageGetterMockRecorder) GetMany(ctx, names interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMany", reflect.TypeOf((*MockMetricsStorageGetter)(nil).GetMany), ctx, names)
 }
 
+// MockMetricsStorageSetter is a mock of MetricsStorageSetter interface.
+type MockMetricsStorageSetter struct {
+	ctrl     *gomock.Controller
+	recorder *MockMetricsStorageSetterMockRecorder
+}
+
+// MockMetricsStorageSetterMockRecorder is the mock recorder for MockMetricsStorageSetter.
+type MockMetricsStorageSetterMockRecorder struct {
+	mock *MockMetricsStorageSetter
+}
+
+// NewMockMetricsStorageSetter creates a new mock instance.
+func NewMockMetricsStorageSetter(ctrl *gomock.Controller) *MockMetricsStorageSetter {
+	mock := &MockMetricsStorageSetter{ctrl: ctrl}
+	mock.recorder = &MockMetricsStorageSetterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMetricsStorageSetter) EXPECT() *MockMetricsStorageSetterMockRecorder {
+	return m.recorder
+}
+
+// SetCounter mocks base method.
+func (m *MockMetricsStorageSetter) SetCounter(ctx context.Context, name string, value int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCounter", ctx, name, value)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetCounter indicates an expected call of SetCounter.
+func (mr *MockMetricsStorageSetterMockRecorder) SetCounter(ctx, name, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCounter", reflect.TypeOf((*MockMetricsStorageSetter)(nil).SetCounter), ctx, name, value)
+}
+
+// SetGauge mocks base method.
+func (m *MockMetricsStorageSetter) SetGauge(ctx context.Context, name string, value float64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetGauge", ctx, name, value)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetGauge indicates an expected call of SetGauge.
+func (mr *MockMetricsStorageSetterMockRecorder) SetGauge(ctx, name, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetGauge", reflect.TypeOf((*MockMetricsStorageSetter)(nil).SetGauge), ctx, name, value)
+}
+
+// SetMany mocks base method.
+func (m *MockMetricsStorageSetter) SetMany(ctx context.Context, items storage.MetricsStorageItems) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMany", ctx, items)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMany indicates an expected call of SetMany.
+func (mr *MockMetricsStorageSetterMockRecorder) SetMany(ctx, items interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMany", reflect.TypeOf((*MockMetricsStorageSetter)(nil).SetMany), ctx, items)
+}
+
 // MockMetricsStorage is a mock of MetricsStorage interface.
 type MockMetricsStorage struct {
 	ctrl     *gomock.Controller
@@ -176,6 +241,20 @@ func (m *MockMetricsStorage) GetMany(ctx context.Context, names storage.MetricsS
 func (mr *MockMetricsStorageMockRecorder) GetMany(ctx, names interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMany", reflect.TypeOf((*MockMetricsStorage)(nil).GetMany), ctx, names)
+}
+
+// Ping mocks base method.
+func (m *MockMetricsStorage) Ping(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ping", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Ping indicates an expected call of Ping.
+func (mr *MockMetricsStorageMockRecorder) Ping(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockMetricsStorage)(nil).Ping), ctx)
 }
 
 // SetCounter mocks base method.

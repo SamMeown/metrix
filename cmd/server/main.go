@@ -23,10 +23,8 @@ func main() {
 
 	var metricsStorage storage.MetricsStorage
 	var storageSaver *saver.MetricsStorageSaver
-	var db *sql.DB
-	var err error
 	if len(serverConfig.DatabaseDSN) > 0 {
-		db, err = sql.Open("pgx", serverConfig.DatabaseDSN)
+		db, err := sql.Open("pgx", serverConfig.DatabaseDSN)
 		if err != nil {
 			panic(err)
 		}
@@ -42,6 +40,7 @@ func main() {
 	} else {
 		metricsStorage = storage.New()
 
+		var err error
 		storageSaver, err = saver.NewMetricsStorageSaver(metricsStorage, serverConfig.StoragePath)
 		if err != nil {
 			panic(err)
@@ -60,5 +59,5 @@ func main() {
 		server.Stop()
 	}()
 
-	server.Run(ctx, serverConfig, metricsStorage, storageSaver, db)
+	server.Run(ctx, serverConfig, metricsStorage, storageSaver)
 }

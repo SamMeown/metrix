@@ -249,6 +249,10 @@ func (s Storage) SetMany(ctx context.Context, items storage.MetricsStorageItems)
 	return tr.Commit()
 }
 
+func (s Storage) Ping(ctx context.Context) error {
+	return s.conn.PingContext(ctx)
+}
+
 func IsRetryableError(err error) bool {
 	var pgErr *pgconn.PgError
 	var netErr *net.OpError

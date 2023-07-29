@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -402,16 +401,11 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 	}
 }
 
-func handlePing(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+func handlePing(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
-		if db == nil {
-			res.WriteHeader(http.StatusOK)
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err := mStorage.Ping(ctx); err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -444,7 +438,7 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 	}
 }
 
-func metricsRouter(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver, db *sql.DB) chi.Router {
+func metricsRouter(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
 
@@ -471,7 +465,7 @@ func metricsRouter(ctx context.Context, conf config.Config, mStorage storage.Met
 
 	router.Post("/value", handleValueJSON(mStorage))
 
-	router.Get("/ping", handlePing(db))
+	router.Get("/ping", handlePing(mStorage))
 
 	router.Get("/", handleRoot(mStorage))
 
@@ -501,7 +495,7 @@ func onUpdate(ctx context.Context, interval int, saver *saver.MetricsStorageSave
 
 var server *http.Server
 
-func Run(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver, db *sql.DB) {
+func Run(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
 	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
@@ -527,7 +521,7 @@ func Run(ctx context.Context, conf config.Config, mStorage storage.MetricsStorag
 
 	server = &http.Server{
 		Addr:    conf.Address,
-		Handler: metricsRouter(ctx, conf, mStorage, saver, db),
+		Handler: metricsRouter(ctx, conf, mStorage, saver),
 	}
 	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

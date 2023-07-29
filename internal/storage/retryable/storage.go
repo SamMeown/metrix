@@ -71,3 +71,7 @@ func (s Storage) SetMany(ctx context.Context, items storage.MetricsStorageItems)
 		return s.s.SetMany(ctx, items)
 	})
 }
+
+func (s Storage) Ping(ctx context.Context) error {
+	return s.s.Ping(ctx)
+}
