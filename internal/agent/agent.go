@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/SamMeown/metrix/internal/agent/client"
@@ -21,12 +20,12 @@ func Start(conf config.Config, collector metrics.Collector, client *client.Metri
 
 	for {
 		if secondsElapsed%int64(conf.PollInterval) == 0 {
-			fmt.Println("Refreshing metrics...")
+			logger.Log.Infoln("Refreshing metrics...")
 			collector.CollectMetrics()
 		}
 
 		if secondsElapsed%int64(conf.ReportInterval) == 0 {
-			fmt.Println("Reporting metrics...")
+			logger.Log.Infoln("Reporting metrics...")
 			client.ReportAllMetrics(collector.Collection())
 			collector.ResetCollectsCount()
 		}

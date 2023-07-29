@@ -179,14 +179,14 @@ func (client *MetricsClient) ReportAllMetricsV1(metricsCollection storage.Metric
 	for name, value := range allMetrics.Gauges {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
-			fmt.Println(err)
+			logger.Log.Errorln(err)
 		}
 	}
 
 	for name, value := range allMetrics.Counters {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
-			fmt.Println(err)
+			logger.Log.Errorln(err)
 		}
 	}
 }
@@ -216,13 +216,13 @@ func (client *MetricsClient) ReportMetricsV1(name string, value any) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Status code: %d\n", response.StatusCode)
+	logger.Log.Infof("Status code: %d\n", response.StatusCode)
 	defer response.Body.Close()
 	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(respBody))
+	logger.Log.Debugln(string(respBody))
 
 	return nil
 }
