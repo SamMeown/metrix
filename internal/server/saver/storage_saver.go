@@ -2,6 +2,7 @@ package saver
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -31,7 +32,7 @@ func NewMetricsStorageSaver(storage storage.MetricsStorage, path string) (*Metri
 	}, nil
 }
 
-func (s *MetricsStorageSaver) Load() error {
+func (s *MetricsStorageSaver) Load(ctx context.Context) error {
 	for {
 		data, err := s.reader.ReadBytes('\n')
 		if err != nil {
@@ -49,17 +50,20 @@ func (s *MetricsStorageSaver) Load() error {
 		}
 
 		if metrics.MType == storage.MetricsTypeGauge {
-			s.storage.SetGauge(metrics.ID, *metrics.Value)
+			err = s.storage.SetGauge(ctx, metrics.ID, *metrics.Value)
 		} else {
-			s.storage.SetCounter(metrics.ID, *metrics.Delta)
+			err = s.storage.SetCounter(ctx, metrics.ID, *metrics.Delta)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (s *MetricsStorageSaver) Save() error {
-	snapshot, err := s.storage.GetAll()
+func (s *MetricsStorageSaver) Save(ctx context.Context) error {
+	snapshot, err := s.storage.GetAll(ctx)
 	if err != nil {
 		return err
 	}

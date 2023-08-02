@@ -3,9 +3,13 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/SamMeown/metrix/internal/backoff"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -24,7 +28,7 @@ type MetricsClient struct {
 
 func NewMetricsClient(baseURL string) *MetricsClient {
 	return &MetricsClient{
-		baseURL: fmt.Sprintf("http://%s/update", baseURL),
+		baseURL: fmt.Sprintf("http://%s/updates", baseURL),
 	}
 }
 
@@ -59,23 +63,43 @@ func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 }
 
 func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll()
+	allMetrics, _ := metricsCollection.GetAll(context.Background())
+	metrics := make([]models.Metrics, 0)
 	for name, value := range allMetrics.Gauges {
-		err := client.ReportMetrics(name, value)
+		reqMetrics, err := metricsToRequestMetrics(name, value)
 		if err != nil {
-			fmt.Println(err)
+			logger.Log.Errorln(err)
+			return
 		}
+		metrics = append(metrics, reqMetrics)
+	}
+	for name, value := range allMetrics.Counters {
+		reqMetrics, err := metricsToRequestMetrics(name, value)
+		if err != nil {
+			logger.Log.Errorln(err)
+			return
+		}
+		metrics = append(metrics, reqMetrics)
 	}
 
-	for name, value := range allMetrics.Counters {
-		err := client.ReportMetrics(name, value)
-		if err != nil {
-			fmt.Println(err)
-		}
+	logger.Log.Debugf("Reporting metrics: %+v", metrics)
+
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		logger.Log.Errorln(err)
+		return
 	}
+
+	respCode, respBody, err := client.sendRequestWithRetry(body)
+	if err != nil {
+		logger.Log.Errorln(err)
+		return
+	}
+
+	logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
 }
 
-func (client *MetricsClient) ReportMetrics(name string, value any) error {
+func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {
 	var metrics = models.Metrics{ID: name}
 
 	switch typedValue := value.(type) {
@@ -86,7 +110,51 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 		metrics.MType = "counter"
 		metrics.Delta = &typedValue
 	default:
-		panic("Wrong metrics value type")
+		return models.Metrics{}, errors.New("wrong metrics value type")
+	}
+
+	return metrics, nil
+}
+
+func (client *MetricsClient) sendRequestWithRetry(requestBody []byte) (code int, body []byte, err error) {
+	bOff := backoff.NewBackoff([]int{1, 3, 5}, nil)
+	err = bOff.Retry(func() (e error) {
+		code, body, e = client.sendRequest(requestBody)
+		return
+	})
+
+	return
+}
+
+func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []byte, err error) {
+	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(requestBody))
+	if err != nil {
+		panic(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(req)
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			err = backoff.NewRetryableError(err)
+		}
+		return
+	}
+
+	code = response.StatusCode
+
+	defer response.Body.Close()
+	body, err = io.ReadAll(response.Body)
+
+	return
+}
+
+func (client *MetricsClient) ReportMetrics(name string, value any) error {
+	metrics, err := metricsToRequestMetrics(name, value)
+	if err != nil {
+		panic(err)
 	}
 
 	logger.Log.Debugf("Reporting metrics: %+v", metrics)
@@ -96,29 +164,31 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 		return err
 	}
 
-	req, err := NewRequest(http.MethodPost, client.baseURL, bytes.NewBuffer(body))
-	if err != nil {
-		panic(err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	response, err := client.Do(req)
+	respCode, respBody, err := client.sendRequestWithRetry(body)
 	if err != nil {
 		return err
 	}
 
-	logger.Log.Debugf("Status code: %d\n", response.StatusCode)
-
-	defer response.Body.Close()
-	respBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Debugln("Report response", string(respBody))
+	logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
 
 	return nil
+}
+
+func (client *MetricsClient) ReportAllMetricsV1(metricsCollection storage.MetricsStorageGetter) {
+	allMetrics, _ := metricsCollection.GetAll(context.Background())
+	for name, value := range allMetrics.Gauges {
+		err := client.ReportMetrics(name, value)
+		if err != nil {
+			logger.Log.Errorln(err)
+		}
+	}
+
+	for name, value := range allMetrics.Counters {
+		err := client.ReportMetrics(name, value)
+		if err != nil {
+			logger.Log.Errorln(err)
+		}
+	}
 }
 
 func (client *MetricsClient) ReportMetricsV1(name string, value any) error {
@@ -146,13 +216,13 @@ func (client *MetricsClient) ReportMetricsV1(name string, value any) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Status code: %d\n", response.StatusCode)
+	logger.Log.Infof("Status code: %d\n", response.StatusCode)
 	defer response.Body.Close()
 	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(respBody))
+	logger.Log.Debugln(string(respBody))
 
 	return nil
 }

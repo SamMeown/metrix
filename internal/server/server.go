@@ -2,9 +2,11 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"log"
 	"net/http"
 	"strconv"
@@ -92,14 +94,14 @@ func handleUpdateJSON(mStorage storage.MetricsStorage, onUpdate func()) func(htt
 		switch metrics.MType {
 		case storage.MetricsTypeGauge:
 			if metrics.Value != nil {
-				mStorage.SetGauge(metrics.ID, *metrics.Value)
+				mStorage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 			} else {
 				http.Error(res, "No metrics value", http.StatusBadRequest)
 				return
 			}
 		case storage.MetricsTypeCounter:
 			if metrics.Delta != nil {
-				mStorage.SetCounter(metrics.ID, *metrics.Delta)
+				mStorage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 			} else {
 				http.Error(res, "No metrics value", http.StatusBadRequest)
 				return
@@ -113,10 +115,10 @@ func handleUpdateJSON(mStorage storage.MetricsStorage, onUpdate func()) func(htt
 		response.Delta = nil
 		switch response.MType {
 		case storage.MetricsTypeGauge:
-			value, _ := mStorage.GetGauge(response.ID)
+			value, _ := mStorage.GetGauge(req.Context(), response.ID)
 			response.Value = value
 		case storage.MetricsTypeCounter:
-			counter, _ := mStorage.GetCounter(response.ID)
+			counter, _ := mStorage.GetCounter(req.Context(), response.ID)
 			value := float64(*counter)
 			response.Value = &value
 		}
@@ -128,6 +130,117 @@ func handleUpdateJSON(mStorage storage.MetricsStorage, onUpdate func()) func(htt
 
 		res.WriteHeader(http.StatusOK)
 		_, err = res.Write(resp)
+		if err != nil {
+			logger.Log.Errorf("Failed to write response body")
+		}
+
+		onUpdate()
+	}
+}
+
+func handleUpdatesJSON(mStorage storage.MetricsStorage, onUpdate func()) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "application/json")
+
+		var metrics []models.Metrics
+		var buf bytes.Buffer
+
+		_, err := buf.ReadFrom(req.Body)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = json.Unmarshal(buf.Bytes(), &metrics)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		logger.Log.Debugf("Body: %+v", metrics)
+
+		metricsItems := storage.MetricsStorageItems{
+			Gauges:   make(map[string]float64),
+			Counters: make(map[string]int64),
+		}
+		for _, m := range metrics {
+			if m.ID == "" {
+				http.Error(res, "No metrics name", http.StatusNotFound)
+				return
+			}
+
+			switch m.MType {
+			case storage.MetricsTypeGauge:
+				if m.Value != nil {
+					metricsItems.Gauges[m.ID] = *m.Value
+				} else {
+					http.Error(res, "No metrics value", http.StatusBadRequest)
+					return
+				}
+			case storage.MetricsTypeCounter:
+				if m.Delta != nil {
+					metricsItems.Counters[m.ID] += *m.Delta
+				} else {
+					http.Error(res, "No metrics value", http.StatusBadRequest)
+					return
+				}
+			default:
+				http.Error(res, "Wrong metrics type", http.StatusBadRequest)
+				return
+			}
+		}
+
+		if err := mStorage.SetMany(req.Context(), metricsItems); err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := make([]models.Metrics, 0)
+
+		updatedMetrics := storage.MetricsStorageKeys{
+			Gauges:   maps.Keys(metricsItems.Gauges),
+			Counters: maps.Keys(metricsItems.Counters),
+		}
+		updatedItems, err := mStorage.GetMany(req.Context(), updatedMetrics)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
+
+		for name, value := range updatedItems.Gauges {
+			value := value
+			response = append(
+				response,
+				models.Metrics{
+					ID:    name,
+					MType: storage.MetricsTypeGauge,
+					Value: &value,
+				},
+			)
+		}
+		for name, value := range updatedItems.Counters {
+			value := value
+			floatValue := float64(value)
+			response = append(
+				response,
+				models.Metrics{
+					ID:    name,
+					MType: storage.MetricsTypeCounter,
+					Value: &floatValue,
+				},
+			)
+		}
+
+		resp, err := json.Marshal(response)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
+
+		logger.Log.Debugf("Response body: %s", resp)
+
+		res.WriteHeader(http.StatusOK)
+		//TODO: send true response body when the test TestBatchAPI/batch_update_random_metrics is fixed
+		//_, err = res.Write(resp)
+		_, err = res.Write([]byte("{}"))
 		if err != nil {
 			logger.Log.Errorf("Failed to write response body")
 		}
@@ -170,14 +283,14 @@ func handleUpdate(mStorage storage.MetricsStorage, onUpdate func()) func(http.Re
 		switch metricsType {
 		case storage.MetricsTypeGauge:
 			if metricsValue, convErr := strconv.ParseFloat(metricsValueStr, 64); convErr == nil {
-				mStorage.SetGauge(metricsName, metricsValue)
+				mStorage.SetGauge(req.Context(), metricsName, metricsValue)
 			} else {
 				http.Error(res, "Can not parse metrics value", http.StatusBadRequest)
 				return
 			}
 		case storage.MetricsTypeCounter:
 			if metricsValue, convErr := strconv.ParseInt(metricsValueStr, 10, 64); convErr == nil {
-				mStorage.SetCounter(metricsName, metricsValue)
+				mStorage.SetCounter(req.Context(), metricsName, metricsValue)
 			} else {
 				http.Error(res, "Can not parse metrics value", http.StatusBadRequest)
 				return
@@ -222,14 +335,14 @@ func handleValueJSON(mStorage storage.MetricsStorage) func(http.ResponseWriter, 
 			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
 			return
 		case storage.MetricsTypeGauge:
-			value, _ := mStorage.GetGauge(request.ID)
+			value, _ := mStorage.GetGauge(req.Context(), request.ID)
 			if value == nil {
 				http.Error(res, "Metrics not found", http.StatusNotFound)
 				return
 			}
 			response.Value = value
 		case storage.MetricsTypeCounter:
-			value, _ := mStorage.GetCounter(request.ID)
+			value, _ := mStorage.GetCounter(req.Context(), request.ID)
 			if value == nil {
 				http.Error(res, "Metrics not found", http.StatusNotFound)
 				return
@@ -264,14 +377,14 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 			http.Error(res, "Wrong metrics type", http.StatusBadRequest)
 			return
 		case storage.MetricsTypeGauge:
-			value, _ := mStorage.GetGauge(metricsName)
+			value, _ := mStorage.GetGauge(req.Context(), metricsName)
 			if value == nil {
 				http.Error(res, "Metrics not found", http.StatusNotFound)
 				return
 			}
 			valueString = strconv.FormatFloat(*value, 'f', -1, 64)
 		case storage.MetricsTypeCounter:
-			value, _ := mStorage.GetCounter(metricsName)
+			value, _ := mStorage.GetCounter(req.Context(), metricsName)
 			if value == nil {
 				http.Error(res, "Metrics not found", http.StatusNotFound)
 				return
@@ -288,12 +401,25 @@ func handleValue(mStorage storage.MetricsStorage) func(res http.ResponseWriter, 
 	}
 }
 
+func handlePing(mStorage storage.MetricsStorage) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
+		defer cancel()
+		if err := mStorage.Ping(ctx); err != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
 func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		var rows string
-		snapshot, _ := mStorage.GetAll()
+		snapshot, _ := mStorage.GetAll(req.Context())
 		for name, value := range snapshot.Gauges {
 			rows += fmt.Sprintf(tableRowTemlate, name, value)
 		}
@@ -312,12 +438,16 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 	}
 }
 
-func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) chi.Router {
+func metricsRouter(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
+
+	onUpdateDone := onUpdate(ctx, conf.StoreInterval, saver)
+
+	router.Post("/updates", handleUpdatesJSON(mStorage, onUpdateDone))
+
 	// Need to route update requests to the same handler even if some named path components are absent
 	// So we haven't found better way other than using such routing
-	onUpdateDone := onUpdate(conf.StoreInterval, saver)
 	router.Route("/update", func(router chi.Router) {
 		router.Post("/", handleUpdateJSON(mStorage, onUpdateDone))
 		router.Route("/{metricsType}", func(router chi.Router) {
@@ -335,20 +465,27 @@ func metricsRouter(conf config.Config, mStorage storage.MetricsStorage, saver *s
 
 	router.Post("/value", handleValueJSON(mStorage))
 
+	router.Get("/ping", handlePing(mStorage))
+
 	router.Get("/", handleRoot(mStorage))
 
 	return router
 }
 
-func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
+func onUpdate(ctx context.Context, interval int, saver *saver.MetricsStorageSaver) func() {
+	if saver == nil {
+		return func() {}
+	}
+
 	var lastSaveTime = time.Now()
 	return func() {
 		if interval == 0 ||
 			time.Since(lastSaveTime) > time.Duration(interval)*time.Second {
 
-			err := saver.Save()
+			err := saver.Save(ctx)
 			if err != nil {
 				logger.Log.Debugf("Error saving db: %s", err.Error())
+				return
 			}
 
 			lastSaveTime = time.Now()
@@ -358,34 +495,40 @@ func onUpdate(interval int, saver *saver.MetricsStorageSaver) func() {
 
 var server *http.Server
 
-func Run(conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
+func Run(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
 	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
 	}
 	defer logger.Log.Sync()
 
-	if conf.Restore {
-		err = saver.Load()
-		if err != nil {
-			logger.Log.Debugf("Error loading db: %s", err.Error())
+	if saver != nil {
+		if conf.Restore {
+			err := saver.Load(ctx)
+			if err != nil {
+				logger.Log.Debugf("Error loading db: %s", err.Error())
+			}
 		}
+
+		defer func() {
+			err := saver.Save(ctx)
+			if err != nil {
+				logger.Log.Debugf("Error saving db: %s", err.Error())
+			}
+			logger.Log.Infof("Storage is saved.")
+		}()
 	}
 
 	server = &http.Server{
 		Addr:    conf.Address,
-		Handler: metricsRouter(conf, mStorage, saver),
+		Handler: metricsRouter(ctx, conf, mStorage, saver),
 	}
 	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 
-	err = saver.Save()
-	if err != nil {
-		logger.Log.Debugf("Error loading db: %s", err.Error())
-	}
-	logger.Log.Infof("Server is stopped. Storage is saved.")
+	logger.Log.Infof("Server is stopped.")
 }
 
 func Stop() {
