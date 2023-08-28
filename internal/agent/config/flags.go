@@ -10,6 +10,7 @@ type Config struct {
 	ServerBaseAddress string
 	PollInterval      int
 	ReportInterval    int
+	SignKey           string
 }
 
 func Parse() Config {
@@ -18,6 +19,7 @@ func Parse() Config {
 	flag.StringVar(&config.ServerBaseAddress, "a", "localhost:8080", "metrics server address and port")
 	flag.IntVar(&config.PollInterval, "p", 2, "metrics poll interval")
 	flag.IntVar(&config.ReportInterval, "r", 10, "metrics report interval")
+	flag.StringVar(&config.SignKey, "k", "", "signature key")
 
 	flag.Parse()
 
@@ -31,6 +33,10 @@ func Parse() Config {
 
 	if reportInterval, ok := configutils.LookupEnvInt("REPORT_INTERVAL"); ok {
 		config.ReportInterval = reportInterval
+	}
+
+	if signKey, ok := configutils.LookupEnvString("KEY"); ok {
+		config.SignKey = signKey
 	}
 
 	return config
