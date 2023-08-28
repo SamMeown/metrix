@@ -12,7 +12,7 @@ type Config struct {
 	StoreInterval int
 	StoragePath   string
 	Restore       bool
-	Key           string
+	SignKey       string
 }
 
 func Parse() (config Config) {
@@ -21,7 +21,7 @@ func Parse() (config Config) {
 	flag.IntVar(&config.StoreInterval, "i", 300, "metrics saving time interval")
 	flag.StringVar(&config.StoragePath, "f", "/tmp/metrics-db.json", "storage dump file path")
 	flag.BoolVar(&config.Restore, "r", true, "should restore from saved dump on start")
-	flag.StringVar(&config.Key, "k", "", "signature key")
+	flag.StringVar(&config.SignKey, "k", "", "signature key")
 	flag.Parse()
 
 	if envAddress, ok := configutils.LookupEnvString("ADDRESS"); ok {
@@ -45,7 +45,7 @@ func Parse() (config Config) {
 	}
 
 	if envKey, ok := configutils.LookupEnvString("KEY"); ok {
-		config.Key = envKey
+		config.SignKey = envKey
 	}
 
 	return
