@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SamMeown/metrix/internal/backoff"
+	"github.com/SamMeown/metrix/internal/crypto/signer"
 	"io"
 	"net"
 	"net/http"
@@ -23,12 +24,14 @@ type counter = int64
 
 type MetricsClient struct {
 	http.Client
-	baseURL string
+	baseURL       string
+	contentSigner *signer.Signer
 }
 
-func NewMetricsClient(baseURL string) *MetricsClient {
+func NewMetricsClient(baseURL string, contentSigner *signer.Signer) *MetricsClient {
 	return &MetricsClient{
-		baseURL: fmt.Sprintf("http://%s/updates", baseURL),
+		baseURL:       fmt.Sprintf("http://%s/updates", baseURL),
+		contentSigner: contentSigner,
 	}
 }
 
@@ -133,6 +136,11 @@ func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []b
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	if client.contentSigner != nil {
+		signature := client.contentSigner.GetSignature(requestBody)
+		req.Header.Set("HashSHA256", signature)
+	}
 
 	response, err := client.Do(req)
 	if err != nil {
