@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"github.com/SamMeown/metrix/internal/crypto/signer"
 	"github.com/SamMeown/metrix/internal/storage"
 	"github.com/SamMeown/metrix/internal/storage/pg"
 	"github.com/SamMeown/metrix/internal/storage/retryable"
@@ -20,6 +21,7 @@ import (
 func main() {
 	ctx := context.Background()
 	serverConfig := config.Parse()
+	contentSigner := signer.New(serverConfig.SignKey)
 
 	var metricsStorage storage.MetricsStorage
 	var storageSaver *saver.MetricsStorageSaver
@@ -59,5 +61,5 @@ func main() {
 		server.Stop()
 	}()
 
-	server.Run(ctx, serverConfig, metricsStorage, storageSaver)
+	server.Run(ctx, serverConfig, metricsStorage, storageSaver, contentSigner)
 }
