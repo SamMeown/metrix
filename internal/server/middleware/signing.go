@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"github.com/SamMeown/metrix/internal/crypto/signer"
+	"github.com/SamMeown/metrix/internal/logger"
 	"io"
 	"net/http"
 )
@@ -61,8 +62,9 @@ func SignValidating(signer *signer.Signer) func(http.Handler) http.Handler {
 
 			signature := req.Header.Get("HashSHA256")
 			if signature == "" && len(bodyBytes) > 0 {
-				http.Error(res, "Content signature not found", http.StatusBadRequest)
-				return
+				logger.Log.Debugln("Content signature not found")
+				//http.Error(res, "Content signature not found", http.StatusBadRequest)
+				//return
 			}
 			if signature != "" && !signer.ValidateSignature(signature, bodyBytes) {
 				http.Error(res, "Content signature is not valid", http.StatusBadRequest)
