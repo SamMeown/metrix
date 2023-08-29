@@ -49,3 +49,32 @@ func Signing(signer *signer.Signer) func(http.Handler) http.Handler {
 		return http.HandlerFunc(fn)
 	}
 }
+
+func SignValidating(signer *signer.Signer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(res http.ResponseWriter, req *http.Request) {
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				http.Error(res, "Failed to read body", http.StatusInternalServerError)
+				return
+			}
+
+			signature := req.Header.Get("HashSHA256")
+			if signature == "" && len(bodyBytes) > 0 {
+				http.Error(res, "Content signature not found", http.StatusBadRequest)
+				return
+			}
+			if signature != "" && !signer.ValidateSignature(signature, bodyBytes) {
+				http.Error(res, "Content signature is not valid", http.StatusBadRequest)
+				return
+			}
+
+			req.Body.Close()
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			next.ServeHTTP(res, req)
+		}
+
+		return http.HandlerFunc(fn)
+	}
+}

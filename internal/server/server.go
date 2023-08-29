@@ -449,7 +449,7 @@ func metricsRouter(
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
 	if signer != nil {
-		router.Use(middlewares.Signing(signer))
+		router.Use(middlewares.SignValidating(signer), middlewares.Signing(signer))
 	}
 
 	onUpdateDone := onUpdate(ctx, conf.StoreInterval, saver)
