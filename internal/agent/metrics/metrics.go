@@ -102,7 +102,7 @@ func (mg *metricsCollector) collectAdditionalMetrics() {
 func (mg *metricsCollector) collectPsutilMetrics() {
 	ctx := context.Background()
 	mg.collectPsutilMemMetrics(ctx)
-	mg.collectPsutilCpuMetrics(ctx)
+	mg.collectPsutilCPUMetrics(ctx)
 }
 
 func (mg *metricsCollector) collectPsutilMemMetrics(ctx context.Context) {
@@ -118,7 +118,7 @@ func (mg *metricsCollector) collectPsutilMemMetrics(ctx context.Context) {
 	mg.collection.SetGauge(ctx, "FreeMemory", gauge(memStat.Available))
 }
 
-func (mg *metricsCollector) collectPsutilCpuMetrics(ctx context.Context) {
+func (mg *metricsCollector) collectPsutilCPUMetrics(ctx context.Context) {
 	cpuPercent, err := cpu.Percent(0, false)
 	if err != nil {
 		logger.Log.Errorf("Failed to get cpu percentage: %s", err)
