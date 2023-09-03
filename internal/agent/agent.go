@@ -39,8 +39,8 @@ func startReportMetricsLoop(conf config.Config, collector metrics.Collector, cli
 		for {
 			m.Lock()
 			logger.Log.Infoln("Reporting metrics...")
-			client.ReportAllMetrics(collector.Collection())
-			collector.ResetCollectsCount()
+			client.ReportAllMetrics(collector.GetMetrics())
+			collector.ResetCounters()
 			m.Unlock()
 			select {
 			case <-ticker.C:

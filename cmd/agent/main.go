@@ -11,7 +11,7 @@ import (
 
 func main() {
 	agentConfig := config.Parse()
-	mStorage := storage.New()
+	mStorage := storage.NewMemStorage()
 	mCollector := metrics.NewCollector(mStorage)
 	mSigner := signer.New(agentConfig.SignKey)
 	mClient := client.NewMetricsClient(agentConfig.ServerBaseAddress, mSigner)

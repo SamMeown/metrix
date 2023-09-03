@@ -40,18 +40,22 @@ type MetricsStorage interface {
 }
 
 func New() MetricsStorage {
-	return memStorage{
+	return NewMemStorage()
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
 	}
 }
 
-type memStorage struct {
+type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
 }
 
-func (m memStorage) GetGauge(ctx context.Context, name string) (*float64, error) {
+func (m *MemStorage) GetGauge(ctx context.Context, name string) (*float64, error) {
 	if val, ok := m.gauges[name]; ok {
 		return &val, nil
 	}
@@ -59,7 +63,7 @@ func (m memStorage) GetGauge(ctx context.Context, name string) (*float64, error)
 	return nil, nil
 }
 
-func (m memStorage) GetCounter(ctx context.Context, name string) (*int64, error) {
+func (m *MemStorage) GetCounter(ctx context.Context, name string) (*int64, error) {
 	if val, ok := m.counters[name]; ok {
 		return &val, nil
 	}
@@ -67,7 +71,7 @@ func (m memStorage) GetCounter(ctx context.Context, name string) (*int64, error)
 	return nil, nil
 }
 
-func (m memStorage) GetMany(ctx context.Context, names MetricsStorageKeys) (MetricsStorageItems, error) {
+func (m *MemStorage) GetMany(ctx context.Context, names MetricsStorageKeys) (MetricsStorageItems, error) {
 	rv := MetricsStorageItems{
 		Gauges:   make(map[string]float64, len(names.Gauges)),
 		Counters: make(map[string]int64, len(names.Counters)),
@@ -90,7 +94,7 @@ func (m memStorage) GetMany(ctx context.Context, names MetricsStorageKeys) (Metr
 	return rv, nil
 }
 
-func (m memStorage) GetAll(ctx context.Context) (MetricsStorageItems, error) {
+func (m *MemStorage) GetAll(ctx context.Context) (MetricsStorageItems, error) {
 	rv := MetricsStorageItems{
 		Gauges:   make(map[string]float64, len(m.gauges)),
 		Counters: make(map[string]int64, len(m.counters)),
@@ -105,7 +109,7 @@ func (m memStorage) GetAll(ctx context.Context) (MetricsStorageItems, error) {
 	return rv, nil
 }
 
-func (m memStorage) SetMany(ctx context.Context, items MetricsStorageItems) error {
+func (m *MemStorage) SetMany(ctx context.Context, items MetricsStorageItems) error {
 	maps.Copy(m.gauges, items.Gauges)
 	for k, v := range items.Counters {
 		m.SetCounter(ctx, k, v)
@@ -114,16 +118,21 @@ func (m memStorage) SetMany(ctx context.Context, items MetricsStorageItems) erro
 	return nil
 }
 
-func (m memStorage) SetGauge(ctx context.Context, name string, value float64) error {
+func (m *MemStorage) SetGauge(ctx context.Context, name string, value float64) error {
 	m.gauges[name] = value
 	return nil
 }
 
-func (m memStorage) SetCounter(ctx context.Context, name string, value int64) error {
+func (m *MemStorage) SetCounter(ctx context.Context, name string, value int64) error {
 	m.counters[name] += value
 	return nil
 }
 
-func (m memStorage) Ping(ctx context.Context) error {
+func (m *MemStorage) ResetCounters(ctx context.Context) error {
+	m.counters = make(map[string]int64)
+	return nil
+}
+
+func (m *MemStorage) Ping(ctx context.Context) error {
 	return nil
 }

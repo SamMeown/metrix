@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,10 +64,9 @@ func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 	return req, nil
 }
 
-func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll(context.Background())
+func (client *MetricsClient) ReportAllMetrics(metricsItems storage.MetricsStorageItems) {
 	metrics := make([]models.Metrics, 0)
-	for name, value := range allMetrics.Gauges {
+	for name, value := range metricsItems.Gauges {
 		reqMetrics, err := metricsToRequestMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
@@ -76,7 +74,7 @@ func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsS
 		}
 		metrics = append(metrics, reqMetrics)
 	}
-	for name, value := range allMetrics.Counters {
+	for name, value := range metricsItems.Counters {
 		reqMetrics, err := metricsToRequestMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
@@ -182,16 +180,15 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 	return nil
 }
 
-func (client *MetricsClient) ReportAllMetricsV1(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll(context.Background())
-	for name, value := range allMetrics.Gauges {
+func (client *MetricsClient) ReportAllMetricsV1(metricsItems storage.MetricsStorageItems) {
+	for name, value := range metricsItems.Gauges {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
 		}
 	}
 
-	for name, value := range allMetrics.Counters {
+	for name, value := range metricsItems.Counters {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
