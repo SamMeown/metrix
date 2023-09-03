@@ -11,6 +11,7 @@ type Config struct {
 	PollInterval      int
 	ReportInterval    int
 	SignKey           string
+	RateLimit         int
 }
 
 func Parse() Config {
@@ -20,6 +21,7 @@ func Parse() Config {
 	flag.IntVar(&config.PollInterval, "p", 2, "metrics poll interval")
 	flag.IntVar(&config.ReportInterval, "r", 10, "metrics report interval")
 	flag.StringVar(&config.SignKey, "k", "", "signature key")
+	flag.IntVar(&config.RateLimit, "l", 4, "agent requests rate limit")
 
 	flag.Parse()
 
@@ -37,6 +39,10 @@ func Parse() Config {
 
 	if signKey, ok := configutils.LookupEnvString("KEY"); ok {
 		config.SignKey = signKey
+	}
+
+	if rateLimit, ok := configutils.LookupEnvInt("RATE_LIMIT"); ok {
+		config.RateLimit = rateLimit
 	}
 
 	return config

@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"github.com/SamMeown/metrix/internal/backoff"
 	"github.com/SamMeown/metrix/internal/crypto/signer"
+	"github.com/SamMeown/metrix/internal/logger"
+	"github.com/SamMeown/metrix/internal/models"
+	"github.com/SamMeown/metrix/internal/storage"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
-
-	"github.com/SamMeown/metrix/internal/logger"
-	"github.com/SamMeown/metrix/internal/models"
-	"github.com/SamMeown/metrix/internal/storage"
 )
 
 type gauge = float64
@@ -25,13 +24,19 @@ type MetricsClient struct {
 	http.Client
 	baseURL       string
 	contentSigner *signer.Signer
+	jobs          chan []byte
 }
 
-func NewMetricsClient(baseURL string, contentSigner *signer.Signer) *MetricsClient {
-	return &MetricsClient{
+func NewMetricsClient(baseURL string, numWorkers int, contentSigner *signer.Signer) *MetricsClient {
+	client := &MetricsClient{
 		baseURL:       fmt.Sprintf("http://%s/updates", baseURL),
 		contentSigner: contentSigner,
+		jobs:          make(chan []byte, 256),
 	}
+
+	client.startWorkers(numWorkers)
+
+	return client
 }
 
 func NewMetricsCustomClient(baseURL string, client http.Client) *MetricsClient {
@@ -64,6 +69,28 @@ func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 	return req, nil
 }
 
+func (client *MetricsClient) worker() {
+	for job := range client.jobs {
+		respCode, respBody, err := client.sendRequestWithRetry(job)
+		if err != nil {
+			logger.Log.Errorln(err)
+			return
+		}
+
+		logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
+	}
+}
+
+func (client *MetricsClient) dispatchRequest(requestBody []byte) {
+	client.jobs <- requestBody
+}
+
+func (client *MetricsClient) startWorkers(num int) {
+	for w := 0; w < num; w++ {
+		go client.worker()
+	}
+}
+
 func (client *MetricsClient) ReportAllMetrics(metricsItems storage.MetricsStorageItems) {
 	metrics := make([]models.Metrics, 0)
 	for name, value := range metricsItems.Gauges {
@@ -91,13 +118,7 @@ func (client *MetricsClient) ReportAllMetrics(metricsItems storage.MetricsStorag
 		return
 	}
 
-	respCode, respBody, err := client.sendRequestWithRetry(body)
-	if err != nil {
-		logger.Log.Errorln(err)
-		return
-	}
-
-	logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
+	client.dispatchRequest(body)
 }
 
 func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {

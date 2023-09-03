@@ -14,7 +14,7 @@ func main() {
 	mStorage := storage.NewMemStorage()
 	mCollector := metrics.NewCollector(mStorage)
 	mSigner := signer.New(agentConfig.SignKey)
-	mClient := client.NewMetricsClient(agentConfig.ServerBaseAddress, mSigner)
+	mClient := client.NewMetricsClient(agentConfig.ServerBaseAddress, agentConfig.RateLimit, mSigner)
 
 	agent.Start(agentConfig, mCollector, mClient)
 }
