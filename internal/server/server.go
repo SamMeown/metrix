@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/SamMeown/metrix/internal/crypto/signer"
 	"golang.org/x/exp/maps"
 	"log"
 	"net/http"
@@ -438,9 +439,18 @@ func handleRoot(mStorage storage.MetricsStorage) func(res http.ResponseWriter, r
 	}
 }
 
-func metricsRouter(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) chi.Router {
+func metricsRouter(
+	ctx context.Context,
+	conf config.Config,
+	mStorage storage.MetricsStorage,
+	saver *saver.MetricsStorageSaver,
+	signer *signer.Signer,
+) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.StripSlashes, middlewares.Logging, middlewares.Compressing)
+	if signer != nil {
+		router.Use(middlewares.SignValidating(signer), middlewares.Signing(signer))
+	}
 
 	onUpdateDone := onUpdate(ctx, conf.StoreInterval, saver)
 
@@ -495,7 +505,13 @@ func onUpdate(ctx context.Context, interval int, saver *saver.MetricsStorageSave
 
 var server *http.Server
 
-func Run(ctx context.Context, conf config.Config, mStorage storage.MetricsStorage, saver *saver.MetricsStorageSaver) {
+func Run(
+	ctx context.Context,
+	conf config.Config,
+	mStorage storage.MetricsStorage,
+	saver *saver.MetricsStorageSaver,
+	signer *signer.Signer,
+) {
 	err := logger.Initialize("info")
 	if err != nil {
 		panic(err)
@@ -521,7 +537,7 @@ func Run(ctx context.Context, conf config.Config, mStorage storage.MetricsStorag
 
 	server = &http.Server{
 		Addr:    conf.Address,
-		Handler: metricsRouter(ctx, conf, mStorage, saver),
+		Handler: metricsRouter(ctx, conf, mStorage, saver, signer),
 	}
 	err = server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

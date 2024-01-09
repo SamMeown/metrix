@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"github.com/SamMeown/metrix/internal/crypto/signer"
 	"github.com/SamMeown/metrix/internal/storage/mock"
 	"github.com/golang/mock/gomock"
 	"io"
@@ -109,12 +110,13 @@ func TestHandleUpdate(t *testing.T) {
 				StoreInterval: 999999,
 				Restore:       false,
 			}
+			nullSigner := (*signer.Signer)(nil)
 			nullSaver := &saver.MetricsStorageSaver{}
 			mStorage := storage.New()
 
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(context.Background(), testConfig, mStorage, nullSaver)
+			handler := metricsRouter(context.Background(), testConfig, mStorage, nullSaver, nullSigner)
 
 			handler.ServeHTTP(recorder, req)
 
@@ -138,6 +140,7 @@ func TestHandleValue(t *testing.T) {
 	mStorage.EXPECT().GetCounter(gomock.Any(), "b").Return(&counterValue, nil)
 
 	nullSaver := &saver.MetricsStorageSaver{}
+	nullSigner := (*signer.Signer)(nil)
 	testConfig := config.Config{
 		StoreInterval: 999999,
 		Restore:       false,
@@ -180,7 +183,7 @@ func TestHandleValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
 			recorder := httptest.NewRecorder()
-			handler := metricsRouter(context.Background(), testConfig, mStorage, nullSaver)
+			handler := metricsRouter(context.Background(), testConfig, mStorage, nullSaver, nullSigner)
 
 			handler.ServeHTTP(recorder, req)
 

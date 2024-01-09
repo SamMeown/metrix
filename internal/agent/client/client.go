@@ -3,19 +3,18 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/SamMeown/metrix/internal/backoff"
+	"github.com/SamMeown/metrix/internal/crypto/signer"
+	"github.com/SamMeown/metrix/internal/logger"
+	"github.com/SamMeown/metrix/internal/models"
+	"github.com/SamMeown/metrix/internal/storage"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
-
-	"github.com/SamMeown/metrix/internal/logger"
-	"github.com/SamMeown/metrix/internal/models"
-	"github.com/SamMeown/metrix/internal/storage"
 )
 
 type gauge = float64
@@ -23,13 +22,21 @@ type counter = int64
 
 type MetricsClient struct {
 	http.Client
-	baseURL string
+	baseURL       string
+	contentSigner *signer.Signer
+	jobs          chan []byte
 }
 
-func NewMetricsClient(baseURL string) *MetricsClient {
-	return &MetricsClient{
-		baseURL: fmt.Sprintf("http://%s/updates", baseURL),
+func NewMetricsClient(baseURL string, numWorkers int, contentSigner *signer.Signer) *MetricsClient {
+	client := &MetricsClient{
+		baseURL:       fmt.Sprintf("http://%s/updates", baseURL),
+		contentSigner: contentSigner,
+		jobs:          make(chan []byte, 256),
 	}
+
+	client.startWorkers(numWorkers)
+
+	return client
 }
 
 func NewMetricsCustomClient(baseURL string, client http.Client) *MetricsClient {
@@ -62,10 +69,31 @@ func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 	return req, nil
 }
 
-func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll(context.Background())
+func (client *MetricsClient) worker() {
+	for job := range client.jobs {
+		respCode, respBody, err := client.sendRequestWithRetry(job)
+		if err != nil {
+			logger.Log.Errorln(err)
+			return
+		}
+
+		logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
+	}
+}
+
+func (client *MetricsClient) dispatchRequest(requestBody []byte) {
+	client.jobs <- requestBody
+}
+
+func (client *MetricsClient) startWorkers(num int) {
+	for w := 0; w < num; w++ {
+		go client.worker()
+	}
+}
+
+func (client *MetricsClient) ReportAllMetrics(metricsItems storage.MetricsStorageItems) {
 	metrics := make([]models.Metrics, 0)
-	for name, value := range allMetrics.Gauges {
+	for name, value := range metricsItems.Gauges {
 		reqMetrics, err := metricsToRequestMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
@@ -73,7 +101,7 @@ func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsS
 		}
 		metrics = append(metrics, reqMetrics)
 	}
-	for name, value := range allMetrics.Counters {
+	for name, value := range metricsItems.Counters {
 		reqMetrics, err := metricsToRequestMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
@@ -90,13 +118,7 @@ func (client *MetricsClient) ReportAllMetrics(metricsCollection storage.MetricsS
 		return
 	}
 
-	respCode, respBody, err := client.sendRequestWithRetry(body)
-	if err != nil {
-		logger.Log.Errorln(err)
-		return
-	}
-
-	logger.Log.Debugf("Status code: %d\nReport response: %s\n", respCode, respBody)
+	client.dispatchRequest(body)
 }
 
 func metricsToRequestMetrics(name string, value any) (models.Metrics, error) {
@@ -133,6 +155,11 @@ func (client *MetricsClient) sendRequest(requestBody []byte) (code int, body []b
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	if client.contentSigner != nil {
+		signature := client.contentSigner.GetSignature(requestBody)
+		req.Header.Set("HashSHA256", signature)
+	}
 
 	response, err := client.Do(req)
 	if err != nil {
@@ -174,16 +201,15 @@ func (client *MetricsClient) ReportMetrics(name string, value any) error {
 	return nil
 }
 
-func (client *MetricsClient) ReportAllMetricsV1(metricsCollection storage.MetricsStorageGetter) {
-	allMetrics, _ := metricsCollection.GetAll(context.Background())
-	for name, value := range allMetrics.Gauges {
+func (client *MetricsClient) ReportAllMetricsV1(metricsItems storage.MetricsStorageItems) {
+	for name, value := range metricsItems.Gauges {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
 		}
 	}
 
-	for name, value := range allMetrics.Counters {
+	for name, value := range metricsItems.Counters {
 		err := client.ReportMetrics(name, value)
 		if err != nil {
 			logger.Log.Errorln(err)
