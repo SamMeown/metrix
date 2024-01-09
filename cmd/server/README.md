@@ -1,3 +1,3 @@
-# cmd/agent
+# cmd/server
 
-В данной директории будет содержаться код Сервера, который скомпилируется в бинарное приложение
+Metrics Server which receives metrics data from metrics agents, stores it in DB and provides API for updating and requesting metrics data.  
